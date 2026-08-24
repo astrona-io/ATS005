@@ -1,125 +1,98 @@
 # Solution Walkthrough
 
-## Step 1: Inspect the current state
+This guide explains how to safely migrate existing users, provision new ones, and set up precise, limited privileges.
 
-```bash
-id user1
-getent passwd user1
-```
+---
 
-Note `user1`'s current primary group and home directory before changing anything.
+## Step 1: Create the target groups and directories
 
-## Step 2: Create the dev and op groups
+Before changing any user records, we need to ensure the groups and destination paths exist on the server.
 
 ```bash
 sudo groupadd dev 2>/dev/null
 sudo groupadd op 2>/dev/null
-```
-
-`dev` must exist before it can be set as `user1`'s primary group; `op` is needed for `user2`'s supplementary groups. `groupadd` exits non-zero if the group already exists — harmless here.
-
-## Step 3: Make sure the parent directory exists
-
-```bash
 sudo mkdir -p /home/accounts
 ```
+*   `groupadd dev 2>/dev/null`: This creates the `dev` group. If it already exists, the shell would normally throw a "group already exists" error. Redirecting standard error to `/dev/null` (`2>/dev/null`) keeps the terminal output clean.
+*   `mkdir -p /home/accounts`: This creates the `/home/accounts` directory. The `-p` (parents) flag makes sure that any missing parent directories are created, and prevents errors if the directory is already present.
 
-`usermod -m -d` creates the target leaf directory, but not missing parent directories.
+---
 
-## Step 4: Relocate user1
+## Step 2: Relocate user1
+
+We need to set `user1`'s primary group to `dev`, set their home directory to the new path, and move their physical files.
 
 ```bash
 sudo usermod -g dev -d /home/accounts/user1 -m user1
 ```
+Let's break down these flags:
+*   `-g dev`: Modifies `user1`'s **primary** group to `dev`.
+*   `-d /home/accounts/user1`: Defines the new path for the user's home directory.
+*   `-m`: This is the **move** flag. It is critical because the `-d` option alone only changes the text pointer in `/etc/passwd`. The `-m` flag tells the system to physically copy and move all folders and files from the old home directory (`/home/user1`) to the new path, correcting permissions dynamically. Without `-m`, the user would log in and find their home directory completely empty!
 
-- `-g dev` sets the new primary group.
-- `-d /home/accounts/user1` updates the home directory field.
-- `-m` actually moves the old home directory's contents to the new path. Without it, only the passwd record would change.
+---
 
-If this fails with a "currently used by process" error, `user1` has an active session — end it (`sudo pkill -u user1`, with caution) and retry.
+## Step 3: Create user2
 
-## Step 5: Create user2
+We need to add a brand-new user with a custom home directory, specific supplementary groups, and the `/bin/bash` shell.
 
 ```bash
 sudo useradd -m -d /home/accounts/user2 -G dev,op -s /bin/bash user2
 ```
+Let's break down these flags:
+*   `-m`: Directs the system to create the user's home directory.
+*   `-d /home/accounts/user2`: Sets the exact target path for the new home directory.
+*   `-G dev,op`: The capital `-G` flag defines **supplementary** (additional) groups. Since this is a new user account, listing the groups as comma-separated values is perfectly safe.
+*   `-s /bin/bash`: Sets `/bin/bash` as their default login shell instead of a basic shell like `/bin/sh`.
 
-Because this is a brand-new account, `-G` isn't replacing anything — there's no prior list to protect. That risk only applies to `usermod -G` on an existing user.
+---
 
-## Step 6: Determine the exact command form to authorize
+## Step 4: Configure scoped sudo access for user2
 
+We want `user2` to be able to run exactly one script as root with no password prompt.
+First, find where the `bash` binary is installed:
 ```bash
 which bash
 ```
-
-Note the resolved path (typically `/usr/bin/bash`).
-
-## Step 7: Write the scoped sudoers rule
+Usually, this returns `/usr/bin/bash`. We will write a custom rule inside `/etc/sudoers.d/` using `visudo`, which verifies our syntax before saving to prevent locks.
 
 ```bash
 sudo visudo -f /etc/sudoers.d/user2-dangerous-script
 ```
-
-Add exactly:
-
-```
+Add the following line exactly:
+```text
 user2 ALL=(root) NOPASSWD: /usr/bin/bash /root/dangerous.sh
 ```
+Let's break this rule down:
+*   `user2`: The user to whom this rule applies.
+*   `ALL=`: The rule is active on all hosts.
+*   `(root)`: The command runs with root privileges.
+*   `NOPASSWD:`: The system will not prompt `user2` for a password when running this command.
+*   `/usr/bin/bash /root/dangerous.sh`: The precise command allowed. Any other command or argument variation will be denied.
 
-Adjust the bash path if `which bash` reported something different. This authorizes only that exact command and argument — not a blanket grant.
-
-## Step 8: Lock down permissions and validate
-
+Save and exit, then configure file ownership and permissions to meet sudo's security standards:
 ```bash
 sudo chmod 0440 /etc/sudoers.d/user2-dangerous-script
 sudo chown root:root /etc/sudoers.d/user2-dangerous-script
 sudo visudo -c
 ```
+*   `chmod 0440`: Restricts permissions so only root and the root group can read the file, and nobody can write to or execute it.
+*   `visudo -c`: Compiles and checks all sudoers configuration files to confirm they are structurally valid.
+
+---
 
 ## Verification
 
-```bash
-id user1
-# gid= should show dev
-
-getent passwd user1
-# home directory field should show /home/accounts/user1
-
-ls /home/accounts/user1
-# user1's original files should be present
-
-id user2
-# groups= should include both dev and op
-
-sudo -l -U user2
-# should list the exact NOPASSWD command
-
-su - user2 -c "sudo -n bash /root/dangerous.sh"
-# should run with no password prompt
-```
-
-## Command Summary
+Always verify your system configuration manually to build confidence before running automated scripts:
 
 ```bash
-sudo groupadd dev 2>/dev/null
-sudo groupadd op 2>/dev/null
-sudo mkdir -p /home/accounts
+# Verify user1 relocation
+id user1                      # Primary group should now be dev
+getent passwd user1            # Home directory field should show /home/accounts/user1
+ls -la /home/accounts/user1   # Confirm original files are present
 
-sudo usermod -g dev -d /home/accounts/user1 -m user1
-sudo useradd -m -d /home/accounts/user2 -G dev,op -s /bin/bash user2
-
-which bash
-sudo visudo -f /etc/sudoers.d/user2-dangerous-script
-# add: user2 ALL=(root) NOPASSWD: /usr/bin/bash /root/dangerous.sh
-
-sudo chmod 0440 /etc/sudoers.d/user2-dangerous-script
-sudo chown root:root /etc/sudoers.d/user2-dangerous-script
-sudo visudo -c
-
-id user1
-getent passwd user1
-ls /home/accounts/user1
-id user2
-sudo -l -U user2
-su - user2 -c "sudo -n bash /root/dangerous.sh"
+# Verify user2 creation
+id user2                      # Groups should include dev and op
+sudo -l -U user2              # Confirm the exact NOPASSWD sudo rule is listed
+su - user2 -c "sudo -n bash /root/dangerous.sh" # Test the sudo rule (should run without asking for a password)
 ```

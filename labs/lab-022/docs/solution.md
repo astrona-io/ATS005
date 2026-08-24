@@ -1,85 +1,108 @@
 # Solution Walkthrough
 
+This guide explains how to find active session limits, replace unstable personal script-based overrides with secure, PAM-enforced system boundaries, and enforce concurrent session limits for entire user groups.
+
 ---
 
-## Step 1: Inspect the current .bashrc hack
+## Step 1: Discover jackie's current soft limit value
 
+A previous admin attempted to enforce a process limit (`nproc`) on user `jackie` by writing a line in her personal `.bashrc` profile. This is bad practice:
+1.  `.bashrc` is only executed for interactive bash shells. Non-interactive sessions (such as cron jobs or remote API tasks) bypass it.
+2.  It set only a **soft** limit. Soft limits are advisory and can be increased by the user at will. We want to configure a PAM-enforced **hard** limit (which only root can increase).
+
+First, inspect jackie's `.bashrc` file to find where the `ulimit` is defined:
 ```bash
 sudo grep -n ulimit /home/jackie/.bashrc
 ```
 
-Note the number the coworker used (e.g. `ulimit -Sp 175`).
-
----
-
-## Step 2: Find the currently effective soft limit
-
+Let's query the system directly to find the exact numerical soft limit currently applied to jackie's environment:
 ```bash
 sudo -u jackie -i ulimit -Sp
 ```
-
-This opens an interactive login shell as jackie and reports the real, currently-active soft `nproc` value — this is the number to reuse as the hard limit.
+*   `sudo -u jackie -i`: Opens an interactive login session as `jackie`, ensuring `.bashrc` is fully sourced.
+*   `ulimit -Sp`: Displays the active **soft** (`-S`) process limit (`-p` / `nproc`). Note down this number (for example, `175`).
 
 ---
 
-## Step 3: Set the hard nproc limit via a limits.d drop-in
+## Step 2: Enforce the hard limit via PAM configuration
 
+Rather than modifying the global `/etc/security/limits.conf` directly, we will write a custom configuration inside `/etc/security/limits.d/`. This keeps our customizations modular, isolated, and easy to review.
+
+Create and open the limit configuration drop-in file:
 ```bash
 sudo vi /etc/security/limits.d/jackie-nproc.conf
 ```
-
-Add (using the number discovered in Step 2):
-
+Add the following line (replace `175` with the actual number you discovered in Step 1 if it differs):
 ```text
 jackie hard nproc 175
 ```
-
-A drop-in under `/etc/security/limits.d/` keeps this isolated and easy to review, rather than editing the shared `/etc/security/limits.conf` directly.
+Let's break down this syntax:
+*   `jackie`: The target user account.
+*   `hard`: Sets a hard limit that cannot be bypassed by the user.
+*   `nproc`: Specifies the maximum number of concurrent processes the user can run.
 
 ---
 
-## Step 4: Remove the old .bashrc hack
+## Step 3: Remove the old .bashrc hack
 
+Since PAM now handles limits securely at session startup, remove the old line from jackie's `.bashrc` file to clean up the environment:
 ```bash
 sudo sed -i '/ulimit -Sp/d' /home/jackie/.bashrc
 ```
-
-The proper `limits.conf` entry now enforces the restriction at session-open time via PAM, regardless of shell type — the `.bashrc` line is redundant and, if left in place, could conflict with the new value.
+*   `sed -i '/pattern/d'`: Searches for the line containing `ulimit -Sp` and deletes (`d`) it in-place (`-i`).
 
 ---
 
-## Step 5: Confirm pam_limits.so is wired into the login path
+## Step 4: Confirm pam_limits.so is enabled in PAM
 
+Limits defined in `/etc/security/limits.conf` and `/etc/security/limits.d/` are enforced by a Pluggable Authentication Module (PAM) named `pam_limits.so`. If this module is not loaded during session setup, our limits will be ignored.
+
+Verify that the module is enabled in your authentication chains:
 ```bash
 grep -n pam_limits /etc/pam.d/common-session /etc/pam.d/login /etc/pam.d/sshd 2>/dev/null
 ```
-
-Expect a line like `session required pam_limits.so` somewhere in the chain. Without it, the `limits.conf` entry is configured but never enforced.
+*   **What to look for:** You should see a line like `session required pam_limits.so` in one or more of these files. On modern Ubuntu systems, this is pre-configured out-of-the-box.
 
 ---
 
-## Step 6: Set the group-wide maxlogins restriction
+## Step 5: Enforce operators maxlogins
 
+We want to restrict every individual member of the `operators` group to a maximum of `1` active login session at any time.
+
+First, verify that the group exists:
 ```bash
 getent group operators
-sudo vi /etc/security/limits.d/operators-maxlogins.conf
 ```
 
-Add:
-
+Create a dedicated drop-in file:
+```bash
+sudo vi /etc/security/limits.d/operators-maxlogins.conf
+```
+Add the following rule:
 ```text
 @operators hard maxlogins 1
 ```
+Let's break down this syntax:
+*   `@operators`: The `@` symbol tells PAM that the target is a **group** instead of a single user account.
+*   `hard`: Enforces a strict, unbypassable hard ceiling.
+*   `maxlogins`: Restricts the maximum number of concurrent login sessions.
 
 ---
 
-## Step 7: Verify
+## Verification
+
+Confirm your configurations are correct before concluding the lab:
 
 ```bash
+# Verify jackie's process limit configurations
 sudo grep nproc /etc/security/limits.d/jackie-nproc.conf
-sudo grep ulimit /home/jackie/.bashrc   # expect no output
+sudo grep ulimit /home/jackie/.bashrc   # Expect no output (confirming deletion)
+
+# Run a test session as jackie to verify limits
 sudo -u jackie -i bash -c 'ulimit -Hp; ulimit -Sp'
+# Expect: both output lines to display your configured number (e.g. 175)
+
+# Verify operators maxlogins rule is defined
 sudo grep maxlogins /etc/security/limits.d/operators-maxlogins.conf
 ```
-
 Once verified, run the local validation suite to pass the lab!

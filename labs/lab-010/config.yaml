@@ -1,0 +1,59 @@
+metadata:
+  name: "ats-005-lab-010"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-010-setup"
+      description: "Creates every pre-existing account/group the capstone transforms: analyst9 (stale group/home), legacy-billing (GID 7000) and temp-scratch groups, /root/rotate-logs.sh sudo target, and the audit2/shortterm3/leaver5 lifecycle accounts"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-analyst9-relocated"
+      description: "Confirms analyst9's primary group is finance, home is /home/accounts/analyst9, and original files were moved"
+      type: "file"
+      source: "validation/validate-analyst9-relocated.sh"
+
+    - name: "verify-newhire9-provisioned-and-sudo"
+      description: "Confirms newhire9 exists with groups finance+ops, home /home/accounts/newhire9, shell /bin/bash, and an exact scoped NOPASSWD sudo rule for rotate-logs.sh"
+      type: "file"
+      source: "validation/validate-newhire9-provisioned-and-sudo.sh"
+
+    - name: "verify-groups-lifecycle"
+      description: "Confirms billing-team (GID 6000) exists with analyst9+newhire9 as members, legacy-billing was renamed to archive-billing keeping its GID 7000, and temp-scratch was deleted"
+      type: "file"
+      source: "validation/validate-groups-lifecycle.sh"
+
+    - name: "verify-audit2-locked"
+      description: "Confirms audit2 is locked out via the password field without being deleted"
+      type: "file"
+      source: "validation/validate-audit2-locked.sh"
+
+    - name: "verify-shortterm3-expiry"
+      description: "Confirms shortterm3's account is set to fully expire in ~14 days"
+      type: "file"
+      source: "validation/validate-shortterm3-expiry.sh"
+
+    - name: "verify-leaver5-removed"
+      description: "Confirms leaver5 and their home directory are fully removed"
+      type: "file"
+      source: "validation/validate-leaver5-removed.sh"
+
+teardown:
+  keepCluster: false

@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-032"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-032-setup"
+      description: "Creates candidate's ~/work scripts directory with a clean, unmodified PATH baseline"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-path-persisted-and-appended"
+      description: "Confirms ~/work is appended (not prepended) to candidate's PATH in a login-shell dotfile"
+      type: "file"
+      source: "validation/validate-path-appended.sh"
+
+    - name: "verify-no-shadowing"
+      description: "Confirms a same-named decoy script in ~/work never wins over the real system command"
+      type: "file"
+      source: "validation/validate-no-shadowing.sh"
+
+teardown:
+  keepCluster: false

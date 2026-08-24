@@ -1,0 +1,44 @@
+metadata:
+  name: "ats-005-lab-030"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-030-setup"
+      description: "Creates candidate with a ~/bin tools directory and a clean environment/profile baseline"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-onboard-portal-login-shells"
+      description: "Confirms ONBOARD_PORTAL is exported system-wide for login shells via /etc/profile.d/"
+      type: "file"
+      source: "validation/validate-onboard-portal.sh"
+
+    - name: "verify-personal-editor"
+      description: "Confirms EDITOR=nano is set only in candidate's own login-shell profile"
+      type: "file"
+      source: "validation/validate-personal-editor.sh"
+
+    - name: "verify-path-appended-no-shadow"
+      description: "Confirms ~/bin is appended (not prepended) to candidate's PATH and a decoy script there never shadows a real system command"
+      type: "file"
+      source: "validation/validate-path-no-shadow.sh"
+
+teardown:
+  keepCluster: false

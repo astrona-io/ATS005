@@ -1,0 +1,34 @@
+metadata:
+  name: "ats-005-lab-042"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-042-setup"
+      description: "Fully provisions a TLS-enabled OpenLDAP server (lab-041's end state) serving dc=example,dc=com, empty and ready for population"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-directory-populated-and-bind"
+      description: "Confirms ou=people/ou=groups, the developers posixGroup, and the lfcsuser posixAccount all exist, and that an authenticated bind as lfcsuser succeeds over StartTLS"
+      type: "file"
+      source: "validation/validate-completed.sh"
+
+teardown:
+  keepCluster: false

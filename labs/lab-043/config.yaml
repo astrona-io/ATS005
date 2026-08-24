@@ -1,0 +1,34 @@
+metadata:
+  name: "ats-005-lab-043"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-043-setup"
+      description: "Fully provisions a populated, TLS-enabled OpenLDAP server (lab-041+lab-042's end state) and installs sssd/sssd-ldap/libnss-sss/libpam-sss"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-sssd-ldap-resolution"
+      description: "Confirms sssd.conf/nsswitch.conf are correctly wired, lfcsuser and developers resolve via NSS, and local accounts like root are unaffected"
+      type: "file"
+      source: "validation/validate-completed.sh"
+
+teardown:
+  keepCluster: false

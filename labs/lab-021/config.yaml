@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-021"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-021-setup"
+      description: "Creates the orion-team group/dir tree, team-lead owner, contractor-jane and auditor-tom accounts"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-acl-access-existing-files"
+      description: "Confirms contractor-jane (rwx) and auditor-tom (r-x) named ACL entries exist on the tree and pre-existing files/ownership are correct"
+      type: "file"
+      source: "validation/validate-acl-access.sh"
+
+    - name: "verify-default-acl-inheritance"
+      description: "Confirms default ACL entries are set and a newly created file automatically inherits both named entries"
+      type: "file"
+      source: "validation/validate-default-acl.sh"
+
+teardown:
+  keepCluster: false

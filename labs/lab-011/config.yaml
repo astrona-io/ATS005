@@ -1,0 +1,44 @@
+metadata:
+  name: "ats-005-lab-011"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-011-setup"
+      description: "Creates user1 with a stale primary group/home and a marker file, and plants /root/dangerous.sh for the sudo rule"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-user1-relocated"
+      description: "Confirms user1's primary group is dev, home is /home/accounts/user1, and original files were moved (not left behind)"
+      type: "file"
+      source: "validation/validate-user1-relocated.sh"
+
+    - name: "verify-user2-provisioned"
+      description: "Confirms user2 exists with groups dev+op, home /home/accounts/user2, and shell /bin/bash"
+      type: "file"
+      source: "validation/validate-user2-provisioned.sh"
+
+    - name: "verify-user2-scoped-sudo"
+      description: "Confirms user2 can run 'sudo bash /root/dangerous.sh' with no password prompt, and that the rule is scoped (not a blanket ALL grant)"
+      type: "file"
+      source: "validation/validate-user2-scoped-sudo.sh"
+
+teardown:
+  keepCluster: false

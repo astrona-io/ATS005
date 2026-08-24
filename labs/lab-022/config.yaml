@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-022"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-022-setup"
+      description: "Creates jackie with a .bashrc soft nproc ulimit hack and the operators group"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-jackie-hard-nproc-limit"
+      description: "Confirms a proper hard nproc limit for jackie exists in limits.d matching the soft value the bootstrap planted, and the old .bashrc hack is removed"
+      type: "file"
+      source: "validation/validate-jackie-nproc.sh"
+
+    - name: "verify-operators-maxlogins"
+      description: "Confirms an @operators hard maxlogins 1 entry exists under limits.d"
+      type: "file"
+      source: "validation/validate-operators-maxlogins.sh"
+
+teardown:
+  keepCluster: false

@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-031"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-031-setup"
+      description: "Creates the candidate user with a clean dotfile baseline and no pre-existing proxy variable"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-system-wide-proxy"
+      description: "Confirms COMPANY_PROXY is set system-wide via /etc/environment, reachable from a fresh session"
+      type: "file"
+      source: "validation/validate-system-wide-proxy.sh"
+
+    - name: "verify-personal-editor"
+      description: "Confirms EDITOR=vim is set only in candidate's own login-shell profile, and nowhere else"
+      type: "file"
+      source: "validation/validate-personal-editor.sh"
+
+teardown:
+  keepCluster: false

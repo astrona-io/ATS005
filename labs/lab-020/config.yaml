@@ -1,0 +1,49 @@
+metadata:
+  name: "ats-005-lab-020"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-020-setup"
+      description: "Creates the atlas-team shared directory tree, vendor-lee/qa-nina accounts, derek's .bashrc soft-limit hack, and the supportstaff group"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-acl-access-existing-files"
+      description: "Confirms vendor-lee (rwx) and qa-nina (r-x) named ACL entries exist on /srv/data/atlas and pre-existing files/ownership are intact"
+      type: "file"
+      source: "validation/validate-acl-access.sh"
+
+    - name: "verify-default-acl-inheritance"
+      description: "Confirms default ACL entries are set and a newly created file automatically inherits both named entries"
+      type: "file"
+      source: "validation/validate-default-acl.sh"
+
+    - name: "verify-derek-hard-nproc-limit"
+      description: "Confirms a proper hard nproc limit for derek exists in limits.d matching the originally planted soft value, and the .bashrc hack is removed"
+      type: "file"
+      source: "validation/validate-derek-nproc.sh"
+
+    - name: "verify-supportstaff-maxlogins"
+      description: "Confirms an @supportstaff hard maxlogins 1 entry exists under limits.d"
+      type: "file"
+      source: "validation/validate-supportstaff-maxlogins.sh"
+
+teardown:
+  keepCluster: false

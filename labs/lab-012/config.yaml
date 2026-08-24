@@ -1,0 +1,49 @@
+metadata:
+  name: "ats-005-lab-012"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-012-setup"
+      description: "Creates marta/cilla with a shared staff primary group, legacy-ops (GID 4200) with a member, and an unused temp-audit group"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-datateam-created"
+      description: "Confirms datateam exists with GID 5000 and marta+cilla as members"
+      type: "file"
+      source: "validation/validate-datateam-created.sh"
+
+    - name: "verify-primary-groups-unchanged"
+      description: "Confirms marta and cilla's primary group is still staff"
+      type: "file"
+      source: "validation/validate-primary-groups-unchanged.sh"
+
+    - name: "verify-platform-ops-renamed"
+      description: "Confirms legacy-ops was renamed to platform-ops with GID 4200 and membership preserved"
+      type: "file"
+      source: "validation/validate-platform-ops-renamed.sh"
+
+    - name: "verify-temp-audit-removed"
+      description: "Confirms temp-audit no longer exists"
+      type: "file"
+      source: "validation/validate-temp-audit-removed.sh"
+
+teardown:
+  keepCluster: false

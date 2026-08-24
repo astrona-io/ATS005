@@ -1,0 +1,34 @@
+metadata:
+  name: "ats-005-lab-041"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-041-setup"
+      description: "Installs slapd/ldap-utils/openssl and pre-generates a self-signed TLS cert/key pair for the student to wire in"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-ldap-server-tls"
+      description: "Confirms slapd serves dc=example,dc=com, listens on 389 and 636, negotiates TLS, and accepts the admin bind"
+      type: "file"
+      source: "validation/validate-completed.sh"
+
+teardown:
+  keepCluster: false

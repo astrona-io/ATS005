@@ -1,0 +1,49 @@
+metadata:
+  name: "ats-005-lab-040"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-040-setup"
+      description: "Installs slapd/ldap-utils/openssl/sssd/sssd-ldap/libnss-sss/libpam-sss and pre-generates a self-signed TLS cert/key pair; all cn=config wiring, directory population, and sssd/nsswitch client configuration are left as the graded capstone task"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-tls-listener-and-bind"
+      description: "Confirms slapd serves dc=example,dc=com, listens on 389 and 636, negotiates TLS on both, and accepts the admin bind with the expected rootPW"
+      type: "file"
+      source: "validation/validate-tls-listener-bind.sh"
+
+    - name: "verify-directory-populated"
+      description: "Confirms ou=people/ou=groups, the developers posixGroup (gid 5000), and the lfcsuser posixAccount (uid 10001) exist with correct attributes and lfcsuser's bind works over StartTLS"
+      type: "file"
+      source: "validation/validate-directory-populated.sh"
+
+    - name: "verify-sssd-resolution"
+      description: "Confirms sssd.conf/nsswitch.conf are correctly wired and lfcsuser/developers resolve via NSS"
+      type: "file"
+      source: "validation/validate-sssd-resolution.sh"
+
+    - name: "verify-local-accounts-unaffected"
+      description: "Confirms local accounts (root) still resolve and authenticate exactly as before the LDAP/sssd integration"
+      type: "file"
+      source: "validation/validate-local-accounts-unaffected.sh"
+
+teardown:
+  keepCluster: false

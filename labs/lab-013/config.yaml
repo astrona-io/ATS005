@@ -1,0 +1,54 @@
+metadata:
+  name: "ats-005-lab-013"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-013-setup"
+      description: "Creates active contractor3 and offboarded contractor1 (with a home dir marker file) ahead of the lifecycle tasks"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-contractor7-defaults"
+      description: "Confirms contractor7 was created using the system's actual useradd -D defaults, not hardcoded overrides"
+      type: "file"
+      source: "validation/validate-contractor7-defaults.sh"
+
+    - name: "verify-contractor7-password-expired"
+      description: "Confirms contractor7's password is expired, forcing a reset on next login"
+      type: "file"
+      source: "validation/validate-contractor7-password-expired.sh"
+
+    - name: "verify-contractor7-account-expiry"
+      description: "Confirms contractor7's account is set to expire ~30 days from now"
+      type: "file"
+      source: "validation/validate-contractor7-account-expiry.sh"
+
+    - name: "verify-contractor3-locked"
+      description: "Confirms contractor3 is locked out via the password field, not deleted"
+      type: "file"
+      source: "validation/validate-contractor3-locked.sh"
+
+    - name: "verify-contractor1-removed"
+      description: "Confirms contractor1 and their home directory are fully removed"
+      type: "file"
+      source: "validation/validate-contractor1-removed.sh"
+
+teardown:
+  keepCluster: false

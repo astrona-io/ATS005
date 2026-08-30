@@ -1,109 +1,254 @@
-# Chapter 3: Account Lifecycle — Defaults, Aging & Locking
+# Account Lifecycle: Defaults, Aging & Locking
 
-> *Locking an account (`passwd -l` / `usermod -L`) disables the password, not the account — an already-authorized SSH key still gets that user in unless you separately disable the shell or the key.*
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-010/module-03/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-010/module-03/playground
+> astrona destroy account-lifecycle-playground
+> ```
 
-Creating an account is only the first moment of its lifecycle. The rest of the job is just as likely to show up on the exam: confirming exactly what "default" means before assuming it, forcing a password reset without ever knowing what the old password was, distinguishing an account that's temporarily locked from one that's permanently expired, and removing an account cleanly with a deliberate choice about what happens to its home directory. None of this is `useradd`/`usermod` in the group-or-home-directory sense from Chapter 1 — it's everything that happens *after* provisioning.
+Creating an account is the first moment of its lifecycle. The rest of the job is just as common: confirming what "default" actually means before assuming it, forcing a password reset without knowing the old password, telling a temporarily locked account apart from a permanently expired one, and removing an account cleanly with a deliberate choice about its home directory. None of this is the group-or-home-directory work from Module 1 — it is everything that happens *after* provisioning.
 
----
+> *Locking an account (`passwd -l` / `usermod -L`) disables the password, not the account — an already-authorized SSH key still gets that user in unless you also disable the shell or remove the key.*
 
-## Part I: Where "Default" Actually Comes From
+## Learning objectives
 
-Before creating an account with no explicit overrides, don't assume you know what shell or home directory base path it will get. Ask the tool directly:
+After this module you can:
 
-```bash
+- Read the effective `useradd` defaults with `useradd -D` and the numeric policy in `/etc/login.defs`, instead of assuming them.
+- Force a password change at next login with `passwd -e` or `chage -d 0`, and explain why that is not the same as an empty password.
+- Distinguish maximum password age (`chage -M`) from a hard account-expiration date (`chage -E`), and read both back with `chage -l`.
+- Lock and unlock an account with `passwd -l` / `-u`, and confirm the state with `passwd -S`.
+- Explain why a locked password does not block key-based SSH, and name two ways to close that gap.
+- Remove an account with `userdel`, choosing `-r` or not based on what should happen to its home directory.
+
+## Before you start
+
+You should be able to provision an account (Module 1), use `sudo`, and know roughly that `/etc/passwd` holds account records and `/etc/shadow` holds the password hash and its aging fields.
+
+The playground VM already has:
+
+- `contractor3` — a real password **and** an authorized SSH key. The matching private key is at `/root/contractor3_key`, so you can SSH to `contractor3@localhost` from inside the VM.
+- `contractor1` — a home directory with `NOTES.txt`, plus a file **outside** home at `/var/backups/contractor1/dump.sql`.
+- `contractor7` — not created yet; you create it.
+- `sshd` running.
+
+Open a shell on it with:
+
+```sh
+astrona ssh astro-account-lifecycle-playground
+```
+
+Every command block below runs **inside that VM**.
+
+## Where this fits
+
+The aging fields this module sets live in `/etc/shadow`, but they are *enforced* by PAM at authentication time — the mechanism Section 020 covers. Two distinctions here are the ones incident response hinges on: a locked *password* is not a locked *account* (key auth ignores the password field), and a bounded *password* lifetime (`-M`) is not a bounded *account* lifetime (`-E`). Getting the layer right is the difference between "they can't log in" and "they still can".
+
+## Where "default" actually comes from
+
+Before creating an account with no explicit overrides, do not assume the shell or home base path. Ask the tool. `useradd -D` (**D**isplay defaults), run with no username, prints the current defaults and creates nothing:
+
+```sh
 useradd -D
 ```
 
-Run with no username, this prints the *current* defaults — default shell, default home base directory, password aging defaults — without creating anything or having any side effect. These values come from `/etc/default/useradd`, plus a set of numeric policy fields (UID ranges, password aging bounds) that live separately in `/etc/login.defs`:
+These values come from `/etc/default/useradd`. A separate set of numeric policy fields — UID ranges, password-aging bounds — lives in `/etc/login.defs`. Organisations customise both routinely, so "the standard Ubuntu defaults" is worth verifying on an unfamiliar system rather than memorising.
 
-```bash
-cat /etc/login.defs | grep -E '^(UID_MIN|UID_MAX|PASS_MAX_DAYS|PASS_MIN_DAYS)'
-```
+> [!TIP]
+> **Try it — read the real defaults, then create with them**
+>
+> ```sh
+> useradd -D
+> grep -E '^(UID_MIN|UID_MAX|PASS_MAX_DAYS|PASS_MIN_DAYS)' /etc/login.defs
+> sudo useradd -m contractor7
+> getent passwd contractor7
+> ```
+>
+> Expect something like:
+>
+> ```text
+> GROUP=100
+> HOME=/home
+> INACTIVE=-1
+> EXPIRE=
+> SHELL=/bin/sh
+> ...
+> UID_MIN                  1000
+> UID_MAX                  60000
+> PASS_MAX_DAYS   99999
+> PASS_MIN_DAYS   0
+> contractor7:x:1003:1003::/home/contractor7:/bin/sh
+> ```
+>
+> The `SHELL=` line from `useradd -D` is what a plain `useradd -m` used for `contractor7` — confirmed in the passwd record. On your VM it may be `/bin/sh` or `/bin/bash`; the point is you *checked* rather than guessed.
 
-Check `man useradd`'s closing section and `man 5 login.defs` directly — organizations customize both files routinely, so "the standard Ubuntu defaults" is an assumption worth verifying on any unfamiliar system, not a fact worth memorizing once.
+## Forcing a password reset — not the same as no password
 
-Creating the account itself, with no shell/home/group overrides, then simply becomes:
+An account required to "set its own password on first login" is a different, safer state than an account with *no* password. `passwd -e` (**e**xpire) immediately expires the current password so a new one must be set at the next login — a fully functional account throughout, just with an aging field demanding a fresh credential first:
 
-```bash
-sudo useradd -m contractor7
-```
-
-`-m` creates the home directory and seeds it from `/etc/skel` — take a look inside `/etc/skel` sometime; anything placed there (a `.bashrc`, a welcome file) is copied automatically into every new account's home directory going forward.
-
----
-
-## Part II: Forcing a Password Reset — Not the Same as No Password
-
-A contractor account with a policy requirement to "set their own password on first login" is a different, more secure state than an account with *no* password at all. The distinction matters:
-
-```bash
+```sh
 sudo passwd -e contractor7
 ```
 
-Check `man 1 passwd`'s `-e` (expire) flag. It immediately expires the account's *current* password state, forcing a new password to be set at the very next login — there is a real, fully functional account throughout, just with an aging field that demands a fresh credential before anything else can happen. The lower-level equivalent, working directly against `/etc/shadow`'s aging fields:
+The lower-level equivalent works directly on `/etc/shadow`'s "last changed" field. `chage` (read: *change age*) with `-d 0` (**d**ate of last change = day 0, i.e. 1970) has the identical forcing effect:
 
-```bash
+```sh
 sudo chage -d 0 contractor7
 ```
 
-Setting the "last changed" date to `0` has the identical forcing effect — check `man 1 chage`'s `-d` flag. Either form assumes the account *has* a real password to expire in the first place. If it doesn't (a brand-new account with no password ever set), PAM's behavior around a genuinely empty password field can bypass the expected forced-change prompt entirely, depending on configuration — which is exactly why setting a real temporary password first, then expiring it, is the predictable, deliberate path rather than leaving the field blank and hoping.
+Either form assumes the account *has* a password to expire. On a brand-new account with no password ever set, PAM's handling of a genuinely empty field can skip the forced-change prompt entirely, depending on configuration — which is why the predictable path is to set a real temporary password first, then expire it.
 
----
+> [!TIP]
+> **Try it — temporary password, then force the change**
+>
+> ```sh
+> echo 'contractor7:Temp-123' | sudo chpasswd
+> sudo passwd -e contractor7
+> sudo chage -l contractor7
+> ```
+>
+> Expect something like:
+>
+> ```text
+> Last password change					: password must be changed
+> Password expires					: password must be changed
+> Account expires						: never
+> Maximum number of days between password change		: 99999
+> ```
+>
+> "Last password change: password must be changed" is the forced-reset state — the account exists and works, but the next interactive login has to set a new password before anything else.
 
-## Part III: Password Aging vs. Account Expiration — Two Different Fields
+## Password aging vs. account expiration — two different fields
 
-These two are commonly conflated, and a task that says "password" versus "account" is testing whether you know they are genuinely separate mechanisms:
+These get conflated, and a task that says "password" versus "account" is testing whether you know they are separate:
 
-- `chage -M <days>` sets the **maximum password age** — how long the *current password* remains valid before the user must change it. The account itself keeps existing indefinitely; only the password's own lifecycle is bounded.
-- `chage -E <date>` sets a hard **account expiration date**. After that date, the account cannot be used to authenticate *at all*, regardless of the password's own validity.
+- `chage -M <days>` sets the **maximum password age** — how long the *current password* stays valid before the user must change it. The account keeps existing indefinitely; only the password's lifecycle is bounded.
+- `chage -E <date>` sets a hard **account expiration date**. After it, the account cannot authenticate *at all*, regardless of password validity.
 
-```bash
-sudo chage -E "$(date -d '+30 days' +%Y-%m-%d)" contractor7
-sudo chage -l contractor7
+```sh
+sudo chage -M 30 contractor7
+sudo chage -E "$(date -d '+30 days' +%F)" contractor7
 ```
 
-Check `man 1 chage`'s `-E` flag for the account-expiration semantics, and use `-l` (list) afterward to read back the full current aging state — confirm both the forced password-change field and the account-expiration field show exactly what you just set, rather than trusting the command silently succeeded.
+Enforcement of `-E` happens at authentication time, not retroactively — setting the date does not kill an already-open session. Killing active sessions, if a task implies it, is a separate action.
 
-Enforcement of `-E` happens at authentication time, not retroactively: setting an expiry date doesn't terminate an already-open session the moment the date is set. If a task also implies killing active sessions, that's a separate action entirely, not something `chage` performs on its own.
+> [!TIP]
+> **Try it — set both, read both back**
+>
+> ```sh
+> sudo chage -M 30 contractor7
+> sudo chage -E "$(date -d '+30 days' +%F)" contractor7
+> sudo chage -l contractor7
+> ```
+>
+> Expect something like:
+>
+> ```text
+> Last password change					: password must be changed
+> Password expires					: password must be changed
+> Password inactive					: never
+> Account expires						: Sep 29, 2026
+> Minimum number of days between password change		: 0
+> Maximum number of days between password change		: 30
+> ```
+>
+> `-M` changed "Maximum number of days between password change" to `30`; `-E` set "Account expires" to a real date. They are different lines because they are different mechanisms. `-l` (**l**ist) is how you confirm a `chage` change landed instead of trusting the silent success.
 
----
+## Locking and unlocking without deleting
 
-## Part IV: Locking and Unlocking Without Deleting
+An account "under investigation" must stop authenticating immediately without losing its configuration or data:
 
-An account "under investigation" needs to stop authenticating immediately, without losing any of its configuration or data:
-
-```bash
+```sh
 sudo passwd -l contractor3
 sudo passwd -S contractor3
 ```
 
-Check `man 1 passwd`'s `-l` flag. It works by **prefixing** the encrypted password field in `/etc/shadow` (typically with `!` or `!!`) so the stored hash can never match any input — critically, it does not clear or destroy the original hash, so unlocking later restores the *exact previous password*, not a blank field. `usermod -L`/`-U` are documented equivalents on the `usermod` side of the same mechanism.
+`passwd -l` (**l**ock) prefixes the encrypted password field in `/etc/shadow` (typically with `!`) so the stored hash can never match any input. It does not clear the original hash — unlocking with `passwd -u` (**u**nlock) restores the *exact previous password*, not a blank one. `usermod -L` / `-U` are the documented equivalents on the `usermod` side. `passwd -S` (**S**tatus) reports a one-letter code — `L` locked, `P` usable password, `NP` no password — the fastest way to check state without reading `/etc/shadow`.
 
-`passwd -S` reports a one-letter status code — `L` for locked — which is the fastest way to confirm state without reading `/etc/shadow` by hand.
+> [!TIP]
+> **Try it — lock, and read the status letter**
+>
+> ```sh
+> sudo passwd -l contractor3
+> sudo passwd -S contractor3
+> ```
+>
+> Expect something like:
+>
+> ```text
+> passwd: password expiry information changed.
+> contractor3 L 08/30/2026 0 99999 7 -1
+> ```
+>
+> The `L` in the second field is the locked state. The password hash is still there underneath the `!` prefix — `passwd -u contractor3` would bring the old password straight back.
 
-### The SSH Key Blind Spot
+### The SSH key blind spot
 
-This is the single most important caveat in this chapter: **locking the password field does nothing to key-based SSH authentication.** If `contractor3` (or any locked account) already has an authorized key in `~/.ssh/authorized_keys`, and the SSH daemon's configuration permits key-based auth, that user can still log in — `passwd -l` never touches that file, and key auth typically doesn't consult the password field at all. A task that implies a *complete* lockout, not just a password-layer block, requires separately addressing the SSH key (removing/renaming `authorized_keys`) or disabling the shell entirely:
+This is the most important caveat in the module: **locking the password field does nothing to key-based SSH.** If a locked account already has a key in `~/.ssh/authorized_keys` and `sshd` permits key auth, that user still logs in — `passwd -l` never touches that file, and key auth does not consult the password field. Closing a *complete* lockout means also removing or renaming `authorized_keys`, or disabling the shell:
 
-```bash
+```sh
 sudo usermod -s /usr/sbin/nologin contractor3
 ```
 
-Know which layer a task is actually asking you to lock.
+`/usr/sbin/nologin` is a real program that prints a refusal and exits non-zero, so it ends the session immediately after authentication.
 
----
+> [!TIP]
+> **Try it — the locked account still lets a key in, until the shell is gone**
+>
+> ```sh
+> sudo passwd -S contractor3
+> ssh -i /root/contractor3_key -o StrictHostKeyChecking=no contractor3@localhost id
+> sudo usermod -s /usr/sbin/nologin contractor3
+> ssh -i /root/contractor3_key -o StrictHostKeyChecking=no contractor3@localhost id
+> ```
+>
+> Expect something like:
+>
+> ```text
+> contractor3 L ...
+> uid=1001(contractor3) gid=1001(contractor3) groups=1001(contractor3)
+> This account is currently not available.
+> ```
+>
+> The password shows `L`, yet the first `ssh` runs `id` as `contractor3` — key auth bypassed the lock entirely. Only after the shell is set to `nologin` does the second attempt get refused.
 
-## Part V: Removing an Account Cleanly
+> [!WARNING]
+> **Common pitfalls — locking**
+>
+> - "`passwd -l` locked the account" — it locked the *password*. Key-based SSH, and anything else that does not check the password field, still works. Address the key or the shell for a full lockout.
+> - Deleting the hash to lock — do not. `passwd -l` deliberately keeps it so `passwd -u` can restore the original password. Blanking `/etc/shadow` by hand loses it.
+> - `chage -E` set, but the user is still logged in — expiry is checked at authentication, not retroactively. Terminate the session separately if that is required.
 
-```bash
+## Removing an account cleanly
+
+```sh
 sudo userdel -r contractor1
 ```
 
-Check `man 8 userdel`'s `-r` flag. Its scope is precise: it removes the home directory and the user's mail spool. It does **not** search the rest of the filesystem for other files this user might own elsewhere — those are untouched either way, `-r` or not. Plain `userdel contractor1` (no `-r`) removes the account entries from `/etc/passwd`/`/etc/shadow`/group membership but leaves the home directory sitting there as an orphan. Whether that's correct behavior depends entirely on whether the task implies "gone completely" or "preserve data for handoff" — read the requirement carefully before picking one.
+`userdel` (read: *user delete*) with `-r` (**r**emove) deletes the account's entries **and** its home directory and mail spool. Its scope stops there — it does **not** search the rest of the filesystem for other files the user owns elsewhere. Plain `userdel contractor1` removes the account entries from `/etc/passwd`, `/etc/shadow`, and group membership but leaves the home directory behind as an orphan. Which is correct depends entirely on whether the task means "gone completely" or "preserve data for handoff".
 
-## Self-Check
-
-1. Before running `useradd` with no overrides, how do you find out what shell and home base path it will actually use?
-2. What's the practical difference between `chage -M 30` and `chage -E` set to 30 days from now?
-3. `passwd -l` was just run against an account. Under what circumstance could that user still log in anyway?
-4. What's left behind after `userdel contractor1` (no `-r` flag) that would be removed by `userdel -r contractor1`?
+> [!TIP]
+> **Try it — see exactly what `-r` does and does not touch**
+>
+> ```sh
+> ls -la /home/contractor1
+> ls -l /var/backups/contractor1
+> sudo userdel -r contractor1
+> ls /home/ | grep contractor1 || echo "home gone"
+> ls -l /var/backups/contractor1
+> ```
+>
+> Expect something like:
+>
+> ```text
+> ... NOTES.txt
+> -rw-r--r-- 1 contractor1 contractor1 32 Aug 30 12:00 dump.sql
+> ...
+> home gone
+> -rw-r--r-- 1 1002 1002 32 Aug 30 12:00 dump.sql
+> ```
+>
+> The home directory and `NOTES.txt` are removed. `/var/backups/contractor1/dump.sql` is untouched — `-r` never looked there — and now shows a bare numeric owner because the name `contractor1` no longer resolves.

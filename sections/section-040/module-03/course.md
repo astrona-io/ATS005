@@ -1,30 +1,85 @@
-# Module 3: LDAP Client Integration with SSSD
+# LDAP Client Integration with SSSD
 
-> *Prove NSS resolution with `getent`/`id` before you ever test a login — a broken auth config that also breaks local accounts can lock you out entirely.*
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-040/module-03/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-040/module-03/playground
+> astrona destroy sssd-client-playground
+> ```
 
-Modules 1 and 2 built something real: a running, TLS-secured OpenLDAP server at `dc=example,dc=com`, populated with a `developers` group and a `lfcsuser` POSIX account. A directory that nothing ever reads from is still just a database. This module closes the loop — configuring the very same machine, acting now as a client, to treat that directory as a source of truth for identity and authentication, using `sssd`, the modern integration layer that current LFCS material and modern distributions expect.
+Modules 1 and 2 built a running, TLS-secured OpenLDAP server at `dc=example,dc=com`, populated with a `developers` group and a `lfcsuser` POSIX account. A directory nothing reads from is still just a database. This module closes the loop: configuring the same machine, acting now as a *client*, to treat that directory as the source of truth for identity and authentication — using `sssd`, the integration layer current distributions and the LFCS exam expect.
 
----
+> *Prove NSS resolution with `getent` / `id` before you ever test a login — a broken auth config that also breaks local accounts can lock you out entirely.*
 
-## Part I: Why SSSD, Not Direct NSS-to-LDAP
+## Learning objectives
 
-Older systems wired NSS directly to LDAP using modules like `libnss-ldap` or `nss-pam-ldapd`. That approach talks to the directory synchronously, on every single lookup, with no caching layer in between. Every `getent` call, every login attempt, hits the LDAP server fresh — and if that server is even briefly unreachable, resolution simply fails for everyone, including users who authenticated successfully five minutes earlier.
+After this module you can:
 
-`sssd` — the System Security Services Daemon — sits between NSS/PAM and the directory as an actual daemon, not a passive library. That buys three concrete things: local caching (so a brief LDAP outage doesn't lock out users already seen), connection handling with retries instead of a single synchronous attempt per lookup, and a single consistent configuration surface that can back onto LDAP, Kerberos, or Active Directory without changing how the rest of the system talks to it. This is why `sssd` is the tool this course teaches, and the one you should expect on the exam.
+- Explain what `sssd` provides over a direct `libnss-ldap`-style setup — caching, a daemon, retry / reconnect.
+- Write `/etc/sssd/sssd.conf` with an `[sssd]` section and a matching `[domain/…]` section for an LDAP backend over StartTLS.
+- Explain why `services`, `domains`, and the domain header name must line up, and what `id_provider` versus `auth_provider` mean.
+- Set `sssd.conf` to mode `600` `root:root`, and explain the startup refusal when it is looser.
+- Add `sss` to `/etc/nsswitch.conf` in the correct order, and explain why `files` first keeps local accounts safe.
+- Verify NSS resolution with `getent` / `id` before attempting a login, and confirm `root` still resolves via `files`.
 
-Install it alongside the NSS and PAM modules that let the rest of the system actually talk to it:
+## Before you start
 
-```bash
-sudo apt install -y sssd sssd-ldap libnss-sss libpam-sss
+You should have a populated, TLS-secured LDAP server to point at — Modules 1 and 2 build exactly that, and the playground provisions their end state for you. You should be comfortable with `systemctl` / `journalctl` and editing config files. One term: **NSS** (Name Service Switch) is the glue that turns a username into a UID, a group name into a GID, and so on — `/etc/nsswitch.conf` decides which sources it asks and in what order.
+
+The playground VM already has:
+
+- Modules 1-2's finished state: a TLS LDAP server on `127.0.0.1` serving `dc=example,dc=com`, with `ou=people`, `ou=groups`, a `developers` group (GID `5000`), and `uid=lfcsuser` (UID `10001`, home `/home/lfcsuser`, shell `/bin/bash`, password `LfcsLdap!2024`).
+- The server's certificate at `/etc/ldap/certs/ldap-server.crt`.
+- `sssd`, `sssd-ldap`, `libnss-sss`, `libpam-sss` **installed but unconfigured** — no `/etc/sssd/sssd.conf`, `nsswitch.conf` untouched, `sssd` not running.
+- `pam_mkhomedir` enabled and SSH password auth on, so a first login works cleanly.
+
+Open a shell on it with:
+
+```sh
+astrona ssh astro-sssd-client-playground
 ```
 
-(RHEL/Fedora-family equivalent: `sudo dnf install -y sssd sssd-ldap`.) `sssd-ldap` is the LDAP-backend provider plugin; `libnss-sss` and `libpam-sss` are the actual NSS and PAM modules that let the C library and the PAM stack reach the running `sssd` daemon over its local socket. Without these two packages specifically installed, `sssd` can be running perfectly and still be invisible to the rest of the system.
+Every command block below runs **inside that VM**.
 
----
+## Where this fits
 
-## Part II: The Domain Section
+This is the consumer end of Section 040 — it reads the POSIX attributes Module 2 wrote. The discipline it teaches (verify resolution before login; keep `root` on `files`) is the same defensive habit that applies to any PAM or NSS change, LDAP or not: never make a change that could break local login without a proven fallback path.
 
-`sssd`'s behavior is defined in `/etc/sssd/sssd.conf`, structured as an `[sssd]` section plus one `[domain/NAME]` section per identity source:
+## Why SSSD, not direct NSS-to-LDAP
+
+Older systems wired NSS straight to LDAP with modules like `libnss-ldap`. That talks to the directory synchronously on *every* lookup, with no cache. Every `getent`, every login, hits the server fresh — and a brief outage breaks resolution for everyone, including users who logged in five minutes ago.
+
+`sssd` (read: *System Security Services Daemon*) sits between NSS/PAM and the directory as a real daemon. That buys three things: a local cache (a short outage does not lock out already-seen users), connection handling with retries instead of one synchronous attempt per lookup, and one config surface that can back onto LDAP, Kerberos, or Active Directory without the rest of the system noticing.
+
+The packages: `sssd-ldap` is the LDAP backend provider; `libnss-sss` and `libpam-sss` are the NSS and PAM modules that let the C library and the PAM stack actually reach the running daemon. Without those last two, `sssd` can run perfectly and stay invisible.
+
+> [!TIP]
+> **Try it — nothing resolves yet, and that is expected**
+>
+> ```sh
+> dpkg -l sssd sssd-ldap libnss-sss libpam-sss | grep '^ii'
+> ls /etc/sssd/sssd.conf 2>&1
+> getent passwd lfcsuser; echo "exit: $?"
+> ```
+>
+> Expect something like:
+>
+> ```text
+> ii  sssd            ...
+> ii  sssd-ldap       ...
+> ii  libnss-sss      ...
+> ii  libpam-sss      ...
+> ls: cannot access '/etc/sssd/sssd.conf': No such file or directory
+> exit: 2
+> ```
+>
+> Every package is installed, yet `getent passwd lfcsuser` returns nothing (exit `2` = not found). Installed is not integrated — there is no config and NSS has not been told to ask.
+
+## The domain section
+
+`sssd`'s behaviour lives in `/etc/sssd/sssd.conf`: an `[sssd]` section plus one `[domain/NAME]` section per identity source.
 
 ```ini
 [sssd]
@@ -42,102 +97,162 @@ ldap_tls_cacert = /etc/ldap/certs/ldap-server.crt
 cache_credentials = True
 ```
 
-A few of these directives are easy to skim past and are exactly where a first attempt tends to go wrong.
+The directives that trip up a first attempt:
 
-`services = nss, pam` activates the two front-ends `sssd` can expose. Without `nss` here, `getent`/`id` never work, no matter how correct the domain section below is. Without `pam`, interactive login authentication never routes through `sssd` either — these are independent switches, and both are needed for a working end-to-end integration.
+- `services = nss, pam` activates the two front-ends. No `nss`, and `getent` / `id` never work no matter how right the domain section is. No `pam`, and login authentication never routes through `sssd`. Independent switches, both needed.
+- `domains = example.com` names the active domain; the `[domain/example.com]` header must match it **exactly**, or the section is silently ignored.
+- `id_provider` answers "where does user/group data come from"; `auth_provider` answers "where is a credential validated". This lab points both at LDAP; a real setup might use LDAP for identity and Kerberos for auth. The split in the format is deliberate.
+- `ldap_id_use_start_tls = true` upgrades the connection the way `ldapsearch -ZZ` did, because Module 1 enforced TLS. `ldap_tls_cacert` points at a local copy of the server's cert so `sssd` trusts the self-signed cert instead of rejecting the handshake. (For quick troubleshooting only, `ldap_tls_reqcert` can be relaxed — trusting the specific cert is the correct fix, not disabling verification.)
+- `cache_credentials = True` is the payoff: a previously-authenticated user can still log in from cache during a brief outage.
 
-`domains = example.com` names which domain section(s) are active; the `[domain/example.com]` header must match this name exactly, or the section is silently ignored.
+> [!TIP]
+> **Try it — write the file and syntax-check it**
+>
+> ```sh
+> sudo install -d -m 711 /etc/sssd
+> sudo tee /etc/sssd/sssd.conf >/dev/null <<'EOF'
+> [sssd]
+> config_file_version = 2
+> services = nss, pam
+> domains = example.com
+>
+> [domain/example.com]
+> id_provider = ldap
+> auth_provider = ldap
+> ldap_uri = ldap://127.0.0.1
+> ldap_search_base = dc=example,dc=com
+> ldap_id_use_start_tls = true
+> ldap_tls_cacert = /etc/ldap/certs/ldap-server.crt
+> cache_credentials = True
+> EOF
+> sudo chmod 600 /etc/sssd/sssd.conf
+> sudo chown root:root /etc/sssd/sssd.conf
+> sudo sssctl config-check
+> ```
+>
+> Expect something like:
+>
+> ```text
+> Issues identified by validators: 0
+> Messages generated during config merge: 0
+> Used configuration snippet files: 0
+> ```
+>
+> `sssctl config-check` parses the file and the permissions and reports zero issues. A misspelled directive or a domain-header mismatch would show up here as a validator issue.
 
-`id_provider` and `auth_provider` are conceptually separate settings, even though this configuration points both at the same LDAP backend. `id_provider` answers "where does user/group data come from"; `auth_provider` answers "where is a credential actually validated." A more complex real-world setup might use LDAP for identity and Kerberos for authentication — this course's single-VM lab keeps both on LDAP for clarity, but the separation in the config format is intentional and worth recognizing.
+## The permission check SSSD performs on itself
 
-`ldap_uri = ldap://127.0.0.1` and `ldap_search_base = dc=example,dc=com` point at exactly the server and base DN Modules 1 and 2 built — every lab in this course runs the "server" and the "client" on the same machine, so the connection target is always loopback, never a second host. Because Module 1 enforced TLS on this server, `ldap_id_use_start_tls = true` upgrades the connection the same way `ldapsearch -ZZ` did, and `ldap_tls_cacert` points at a local copy of the server's own certificate so `sssd` actually trusts a self-signed cert instead of rejecting the handshake outright. (For quick troubleshooting only — never as a permanent setting — `ldap_tls_reqcert` can be relaxed; trusting the specific certificate via `ldap_tls_cacert` is the correct fix, not disabling verification.)
+`sssd.conf` holds connection details that should not be world-readable, and `sssd` does not just hope you remember — it checks at startup and refuses to run against a loose file rather than proceed insecurely. `600`, owned `root:root`, is the required state.
 
-`cache_credentials = True` is the concrete payoff of choosing `sssd` over a direct NSS-to-LDAP module in the first place: a user who has authenticated before can still log in from `sssd`'s local cache during a brief directory outage.
+> [!TIP]
+> **Try it — loosen the file and watch sssd refuse**
+>
+> ```sh
+> sudo chmod 644 /etc/sssd/sssd.conf
+> sudo systemctl restart sssd; echo "restart exit: $?"
+> sudo journalctl -u sssd -n 5 --no-pager | grep -i perm
+> sudo chmod 600 /etc/sssd/sssd.conf
+> ```
+>
+> Expect something like:
+>
+> ```text
+> restart exit: 1
+> ... File ownership and permissions check failed. Expected root:root and 0600.
+> ```
+>
+> Mode `644` makes the restart fail with an explicit ownership/permissions message — nothing to do with `ldap_uri` or the domain section. This failure mode surprises people because it looks unrelated to the config content. Restoring `600` clears it.
 
----
+## Telling NSS to actually ask
 
-## Part III: The Permission Check SSSD Performs on Itself
+None of the above matters until NSS consults `sssd`. `/etc/nsswitch.conf` lists, per database, an ordered set of sources. The `passwd` and `group` lines need `sss` added:
 
-`sssd.conf` frequently contains connection details that should not be world-readable, and `sssd` does not simply hope administrators remember to lock it down — it checks at startup and refuses to run against a loosely-permissioned file rather than proceeding insecurely:
-
-```bash
-sudo chown root:root /etc/sssd/sssd.conf
-sudo chmod 600 /etc/sssd/sssd.conf
+```text
+passwd:         files sss
+group:          files sss
 ```
 
-`600`, owned by `root:root`, is the expected and required state. Anything looser — `644`, group-readable, world-readable — causes `sssd` to fail at startup with a permission-related error in its logs. This failure mode surprises people specifically because it looks unrelated to the domain configuration itself; the fix has nothing to do with `ldap_uri` or `ldap_search_base` and everything to do with `ls -l` on the config file.
+The **order** is the point. NSS checks sources left to right, so a lookup for `root` is satisfied by `files` (`/etc/passwd`) before `sss` is ever consulted — completely independent of whether `sssd` or LDAP is healthy. That is the entire reason a misconfigured LDAP integration does not lock you out. `sss` before `files` would be the dangerous ordering.
 
----
+> [!TIP]
+> **Try it — wire NSS, start sssd, and resolve the user**
+>
+> ```sh
+> sudo sed -i -E '/^(passwd|group):/ s/$/ sss/' /etc/nsswitch.conf
+> grep -E '^(passwd|group):' /etc/nsswitch.conf
+> sudo systemctl enable --now sssd
+> getent passwd lfcsuser
+> getent group developers
+> ```
+>
+> Expect something like:
+>
+> ```text
+> passwd:         files systemd sss
+> group:          files systemd sss
+> lfcsuser:*:10001:5000:LFCS User:/home/lfcsuser:/bin/bash
+> developers:*:5000:
+> ```
+>
+> With `sss` appended (after `files`) and `sssd` running, `getent passwd lfcsuser` now returns a full `passwd`-style line built from Module 2's POSIX attributes — `sssd` queried LDAP over StartTLS and NSS handed the result back. If it were missing `sss`, this would still return nothing regardless of how correct `sssd.conf` is.
 
-## Part IV: Telling NSS to Actually Ask
+## Verify in order — resolution, then login
 
-None of the above matters if NSS never consults `sssd` in the first place. `/etc/nsswitch.conf` lists, per database, an ordered set of sources to check. Change the relevant lines:
+There is a correct testing order; skipping ahead wastes time on the wrong layer.
 
-```
-passwd: files
-group:  files
-```
+**First**, prove NSS resolution, no authentication involved:
 
-to:
-
-```
-passwd: files sss
-group:  files sss
-```
-
-This single edit is where "I configured `sssd.conf` perfectly and nothing works" most often actually goes wrong. If `sss` is missing from these lines, `getent passwd lfcsuser` returns nothing — not because `sssd` or LDAP is broken, but because NSS's lookup chain never reaches `sssd` at all, regardless of how correct the daemon's own configuration is.
-
-Notice also the *order*: `files` comes first, `sss` second. NSS checks sources left to right. This ordering is precisely why local accounts are safe: a lookup for `root` is satisfied by `files` — `/etc/passwd` — before `sss` is ever consulted, completely independent of whether `sssd` or the LDAP backend is healthy at that moment. This is not an incidental detail; it is the entire reason a misconfigured LDAP integration does not lock you out of the box entirely.
-
-Start (and enable) the service once the config and `nsswitch.conf` are both in place:
-
-```bash
-sudo systemctl enable --now sssd
-sudo systemctl status sssd
-sudo journalctl -u sssd -n 50 --no-pager
-```
-
-If Part III's permissions were wrong, this is where it surfaces — check the log for an explicit permission failure before assuming the domain configuration itself is at fault.
-
----
-
-## Part V: Verify in Order — Resolution, Then Login
-
-There is a correct order to testing this integration, and skipping ahead wastes time chasing the wrong layer.
-
-**First**, prove NSS resolution, with no authentication involved at all:
-
-```bash
+```sh
 getent passwd lfcsuser
 getent group developers
 id lfcsuser
 ```
 
-`getent` walks the exact same source chain configured in `nsswitch.conf` — a correct result here proves the entire identity path works end to end: NSS asked `sss`, `sssd` queried LDAP, and the POSIX attributes from Module 2 (`uidNumber`, `gidNumber`, `homeDirectory`, `loginShell`) came back correctly. `id` goes one step further and confirms group membership resolution alongside the passwd entry — a check `getent passwd` alone would not necessarily catch on its own.
+`getent` walks the exact source chain in `nsswitch.conf`; a clean result proves the whole identity path end to end. `id` additionally confirms group-membership resolution, which `getent passwd` alone would not catch.
 
-Only once both of these come back clean should interactive login even be attempted. Testing a login first conflates two separate failure domains — identity resolution and PAM authentication — and makes it much harder to tell which one actually broke if something goes wrong.
+**Then**, and only then, test an actual login — from a **second** session, keeping your privileged one open:
 
-**Then**, and only then, test an actual login — from a **second**, separate session, keeping your original privileged session open:
-
-```bash
+```sh
 ssh lfcsuser@127.0.0.1
 ```
 
-**Finally**, confirm the one thing that must never have changed throughout any of this:
+**Finally**, confirm the thing that must never have changed:
 
-```bash
+```sh
 getent passwd root
 id root
 ```
 
-`root` resolves via `files`, per the `nsswitch.conf` ordering from Part IV, completely independent of `sssd`'s state — whether it is running perfectly, misconfigured, or not running at all. This is the check that proves the LDAP integration is additive, not a replacement for local accounts, and it is the check most worth running again any time you change PAM or NSS configuration in production.
+`root` resolves via `files`, per the ordering above, no matter what state `sssd` is in. This check proves the integration is additive, not a replacement — and it is worth re-running any time you touch PAM or NSS.
 
----
+> [!TIP]
+> **Try it — resolution, a real LDAP login, and root untouched**
+>
+> ```sh
+> id lfcsuser
+> sshpass -p 'LfcsLdap!2024' ssh -o StrictHostKeyChecking=no lfcsuser@127.0.0.1 'whoami; pwd'
+> getent passwd root
+> id root
+> ```
+>
+> Expect something like:
+>
+> ```text
+> uid=10001(lfcsuser) gid=5000(developers) groups=5000(developers)
+> lfcsuser
+> /home/lfcsuser
+> root:x:0:0:root:/root:/bin/bash
+> uid=0(root) gid=0(root) groups=0(root)
+> ```
+>
+> `id lfcsuser` resolves UID, GID, and group from LDAP. The `ssh` login authenticates `lfcsuser` against the directory (PAM → `sssd` → LDAP bind) and `pam_mkhomedir` creates `/home/lfcsuser` on the way in. `root` still resolves from `/etc/passwd` with `x` in the password field — the local account path is completely unaffected. (`sshpass` is only in the playground for a non-interactive demo; normally you type the password.)
 
-## Self-Check and Verification
-
-Test your understanding before attempting the lab:
-1.  **Why SSSD**: What concrete capability does `sssd` provide over a direct `libnss-ldap`-style setup, beyond "it's more modern"? *(Answer: local caching and connection handling — a brief LDAP outage doesn't immediately break resolution or already-authenticated logins.)*
-2.  **NSS Wiring**: If `sssd.conf` is configured correctly and the service is running, but `getent passwd lfcsuser` still returns nothing, what is the first file to check, and why? *(Answer: `/etc/nsswitch.conf` — if the `passwd` line doesn't include `sss`, NSS never queries SSSD at all, regardless of how correct `sssd.conf` is.)*
-3.  **Verification Order**: Why check `getent`/`id` before attempting an interactive login? *(Answer: They isolate NSS/identity resolution from PAM/authentication — testing login first makes it hard to tell which layer actually failed.)*
-4.  **Local Account Safety**: Why does `root` keep working no matter what happens to the LDAP configuration? *(Answer: `nsswitch.conf` lists `files` before `sss`, so local accounts resolve from `/etc/passwd` first and never need to reach the LDAP-backed source at all.)*
+> [!WARNING]
+> **Common pitfalls — SSSD client integration**
+>
+> - `sssd.conf` perfect, `getent passwd lfcsuser` still empty — check `/etc/nsswitch.conf` first. No `sss` on the `passwd` line means NSS never asks `sssd`.
+> - `[domain/example.com]` header not matching `domains = example.com` — the section is silently ignored, no error.
+> - `sssd.conf` at `644` or group-readable — `sssd` refuses to start with a permissions error that looks unrelated to the config content. `chmod 600`, `chown root:root`.
+> - `sss` before `files` in `nsswitch.conf` — a directory outage can now break `root` resolution. `files` always first.
+> - Testing login before `getent` / `id` — conflates identity resolution and PAM auth; you cannot tell which failed.
+> - Self-signed cert rejected — set `ldap_tls_cacert` to a local copy of the server cert. Do not disable verification as the "fix".

@@ -1,16 +1,55 @@
-# Module 2: LDAP Directory Population & TLS Bind Verification
+# LDAP Directory Population & TLS Bind Verification
 
-> *A directory entry existing and a directory entry being reachable over an encrypted bind are two different things to verify — prove both before you call identity integration done.*
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-040/module-02/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-040/module-02/playground
+> astrona destroy ldap-populate-playground
+> ```
 
-Module 1 left you with a server that is installed, TLS-capable, and completely empty. An empty directory is not useful to anyone. This module writes real structure into it — organizational units, a POSIX group, a full POSIX user — using LDIF, sets that user's password, and then proves, deliberately and separately, that the resulting entry is both searchable and bindable, and that the bind only succeeds over an encrypted connection. By the end of this chapter, the same `posixAccount`/`posixGroup` attributes you write here — `uidNumber`, `gidNumber`, `homeDirectory`, `loginShell` — are exactly what Module 3's `sssd` client reads back out on the other side.
+Module 1 left a server that is installed, TLS-capable, and completely empty. An empty directory helps no one. This module writes real structure into it — organizational units, a POSIX group, a full POSIX user — with LDIF, sets the user's password, and then proves, separately, that the entry is both *searchable* and *bindable*, and that the bind only succeeds over an encrypted connection. The same `posixAccount` attributes written here — `uidNumber`, `gidNumber`, `homeDirectory`, `loginShell` — are exactly what Module 3's `sssd` client reads back out.
 
----
+> *An entry existing and an entry being reachable over an encrypted bind are two different claims — prove both before calling identity integration done.*
 
-## Part I: LDIF, the Language of Directory Content
+## Learning objectives
 
-Every change you make to directory data — as opposed to `cn=config` itself — is expressed in **LDIF** (LDAP Data Interchange Format). It is a plain-text format, but its rules are strict enough to be worth stating explicitly, because violating them silently produces confusing errors.
+After this module you can:
 
-A minimal LDIF entry needs exactly one `dn:` line naming its unique position in the tree, followed by one or more `objectClass:` lines declaring which schema classes govern the entry, plus whatever attributes those classes require or allow. When a file contains multiple entries, a **blank line** is the entry separator:
+- Write a valid LDIF entry (`dn` + `objectClass` + required attributes) and explain what a blank line separates.
+- Explain why parent entries must exist before child entries, and add `ou=` containers first.
+- Distinguish a structural object class from an auxiliary one, and explain why `posixAccount` needs `inetOrgPerson` alongside it.
+- Add a POSIX group and a POSIX user with `ldapadd` as the admin bind identity.
+- Set a directory password with `ldappasswd` or a pre-hashed `userPassword`, without writing plaintext to a file.
+- Prove an entry is searchable, and separately prove a bind as that user succeeds only over TLS, using `-ZZ` and `ldapwhoami`.
+
+## Before you start
+
+You should have Module 1's concepts: a **DN** is a unique path-like name for an entry, and StartTLS (`-ZZ`) upgrades a port-389 connection to encrypted. Unlike Module 1, nothing here touches `cn=config` — this is *directory data*, changed with an ordinary authenticated bind as the admin identity, not the `ldapi:///` socket.
+
+The playground VM already has Module 1's finished state, provisioned for you:
+
+- A TLS-secured OpenLDAP server serving **`dc=example,dc=com`**, listening on `389` (StartTLS) and `636` (LDAPS).
+- Admin bind DN **`cn=admin,dc=example,dc=com`**, password **`LdapRoot!2024`**.
+- The server's certificate at `/etc/ldap/certs/ldap-server.crt`.
+- The directory itself is **empty**.
+
+Open a shell on it with:
+
+```sh
+astrona ssh astro-ldap-populate-playground
+```
+
+Every command block below runs **inside that VM**.
+
+## Where this fits
+
+Module 1 built the container; this module fills it; Module 3 consumes it. The POSIX attributes you set on the user entry here are not decoration — `sssd` maps them straight onto a `passwd`-style record on the client, so a wrong `homeDirectory` or missing `loginShell` here becomes a broken login there.
+
+## LDIF, the language of directory content
+
+Every change to directory data is expressed in **LDIF** (LDAP Data Interchange Format) — plain text, but with strict rules that produce confusing errors when broken. A minimal entry needs one `dn:` line naming its position, one or more `objectClass:` lines declaring which schema classes govern it, and the attributes those classes require. When a file holds multiple entries, a **blank line** separates them:
 
 ```ldif
 dn: ou=people,dc=example,dc=com
@@ -22,25 +61,57 @@ objectClass: organizationalUnit
 ou: groups
 ```
 
-Miss that blank line and `ldapadd` will not politely skip ahead to a second entry — it will attempt to parse both stanzas as one malformed entry and reject the whole file. This is one of the most common, and most confusing-to-diagnose, LDIF mistakes: it looks like a content problem when it is actually a formatting one.
+`organizationalUnit` is the standard structural class for a directory "folder." Note that `ou: people` appears both in the `dn:` (as the **RDN** — the relative distinguished name, the leftmost component) and again as its own attribute line. That repetition is required, not redundant — the parser treats the RDN and the attribute as different things.
 
-`organizationalUnit` is the standard structural class for a directory "folder." Notice that `ou: people` appears both in the `dn:` (as the RDN — the relative distinguished name, the leftmost component that makes this entry's position unique) and again as its own attribute line. That repetition is required, not redundant — the RDN and the attribute are related but are not the same syntactic thing to the LDAP parser.
+Apply it as the admin identity Module 1 configured. `ldapadd` is `ldapmodify` with an implicit "add"; `-x` selects simple auth (bind DN + password) rather than SASL; `-W` prompts for the password instead of leaving it in shell history or `ps` output; `-D` names the binding identity.
 
-Apply this structure as the directory admin identity Module 1 configured:
-
-```bash
+```sh
 ldapadd -x -W -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -f /tmp/ou-structure.ldif
 ```
 
-`-x` selects simple authentication (a bind DN plus a password) rather than SASL. `-W` prompts interactively for that password instead of accepting it as a command-line argument, which would otherwise sit in shell history and be visible to anyone running `ps` on the box at the wrong moment. `-D` names the identity performing the add. Under the hood, `ldapadd` is nothing more than `ldapmodify` run with an implicit "add" operation — the same tool, a different verb.
+> [!TIP]
+> **Try it — add the two containers**
+>
+> ```sh
+> printf 'dn: ou=people,dc=example,dc=com\nobjectClass: organizationalUnit\nou: people\n\ndn: ou=groups,dc=example,dc=com\nobjectClass: organizationalUnit\nou: groups\n' > /tmp/ou-structure.ldif
+> ldapadd -x -W -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -f /tmp/ou-structure.ldif
+> ```
+>
+> Enter `LdapRoot!2024` at the prompt. Expect something like:
+>
+> ```text
+> Enter LDAP Password:
+> adding new entry "ou=people,dc=example,dc=com"
+> adding new entry "ou=groups,dc=example,dc=com"
+> ```
+>
+> Two `adding new entry` lines — the blank line in the file told `ldapadd` these were two separate entries. Remove that blank line and it tries to parse both stanzas as one and rejects the whole file.
 
----
+## Structural vs. auxiliary object classes
 
-## Part II: A Group and a User, Together
+LDAP has a rule with no filesystem equivalent: **a parent entry must exist before any child can be created under it** — there is no `mkdir -p`. `ou=people` and `ou=groups` exist so the group and user below can be placed at all.
 
-LDAP has an important structural rule: **parent entries must exist before child entries can be created beneath them.** Unlike a filesystem's `mkdir -p`, there is no implicit "create the intermediate directories for me" behavior. `ou=people` and `ou=groups` from Part I exist specifically so the entries below can be added into them at all.
+Object classes come in two kinds. A **structural** class (like `organizationalUnit`, or `inetOrgPerson` for a person) provides an entry's backbone; every entry must have exactly one. An **auxiliary** class adds attributes but no backbone. `posixAccount` is auxiliary: it supplies `uidNumber`, `gidNumber`, `homeDirectory`, `loginShell`, but cannot stand alone. An entry with `posixAccount` and nothing structural is invalid — one of the most common first-POSIX-user mistakes.
 
-Write a POSIX group and a POSIX user in one file:
+> [!TIP]
+> **Try it — watch a structure-less entry get rejected**
+>
+> ```sh
+> printf 'dn: uid=broken,ou=people,dc=example,dc=com\nobjectClass: posixAccount\nuid: broken\ncn: broken\nuidNumber: 12345\ngidNumber: 5000\nhomeDirectory: /home/broken\n' > /tmp/broken.ldif
+> ldapadd -x -w 'LdapRoot!2024' -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -f /tmp/broken.ldif
+> ```
+>
+> Expect something like:
+>
+> ```text
+> adding new entry "uid=broken,ou=people,dc=example,dc=com"
+> ldap_add: Object class violation (65)
+>         additional info: no structural object class provided
+> ```
+>
+> `posixAccount` alone is not enough — the server refuses the entry. (`-w '<pw>'` passes the password inline; fine in a throwaway playground, but `-W` to be prompted is the habit for a real box.)
+
+The real user entry fixes this by carrying `inetOrgPerson` (structural — supplies `cn`/`sn`) and `shadowAccount` (auxiliary — shadow-style aging attributes) alongside `posixAccount`. A `posixGroup`, by contrast, needs only `cn` and `gidNumber` — it is genuinely complete on its own.
 
 ```ldif
 dn: cn=developers,ou=groups,dc=example,dc=com
@@ -61,80 +132,103 @@ homeDirectory: /home/lfcsuser
 loginShell: /bin/bash
 ```
 
-A few details here are worth slowing down for. `objectClass` appears three times on the user entry — once per class it belongs to. That is normal, expected, and required; it is not three attempts at the same thing.
+> [!TIP]
+> **Try it — add the group and the user, then read them back**
+>
+> ```sh
+> printf 'dn: cn=developers,ou=groups,dc=example,dc=com\nobjectClass: posixGroup\ncn: developers\ngidNumber: 5000\n\ndn: uid=lfcsuser,ou=people,dc=example,dc=com\nobjectClass: inetOrgPerson\nobjectClass: posixAccount\nobjectClass: shadowAccount\ncn: LFCS User\nsn: User\nuid: lfcsuser\nuidNumber: 10001\ngidNumber: 5000\nhomeDirectory: /home/lfcsuser\nloginShell: /bin/bash\n' > /tmp/lfcsuser.ldif
+> ldapadd -x -w 'LdapRoot!2024' -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -f /tmp/lfcsuser.ldif
+> ldapsearch -x -H ldap://127.0.0.1 -b "dc=example,dc=com" -LLL "(uid=lfcsuser)" uidNumber gidNumber homeDirectory loginShell
+> ```
+>
+> Expect something like:
+>
+> ```text
+> adding new entry "cn=developers,ou=groups,dc=example,dc=com"
+> adding new entry "uid=lfcsuser,ou=people,dc=example,dc=com"
+> dn: uid=lfcsuser,ou=people,dc=example,dc=com
+> uidNumber: 10001
+> gidNumber: 5000
+> homeDirectory: /home/lfcsuser
+> loginShell: /bin/bash
+> ```
+>
+> Both entries add cleanly with three `objectClass` lines on the user. The search shows the POSIX attributes stored and readable — the raw material Module 3 turns into a `passwd` entry.
 
-`posixGroup` requires `cn` and `gidNumber` — that is genuinely everything it needs. `posixAccount`, on the other hand, is an **auxiliary** object class: it adds POSIX-specific attributes (`uidNumber`, `gidNumber`, `homeDirectory`, `loginShell`) but does not, by itself, provide the structural backbone every LDAP entry needs. That is why the user entry also carries `inetOrgPerson` (which supplies `cn`/`sn` and satisfies the requirement that every entry have exactly one structural object class) alongside `posixAccount`. An entry with `posixAccount` alone, and nothing structural beside it, is invalid in most schemas — this is one of the most common mistakes when hand-writing a first POSIX user LDIF.
+## Setting a password, two ways
 
-Every one of these fields — `uidNumber`, `gidNumber`, `homeDirectory`, `loginShell` — is not decoration. It is precisely what a client's NSS layer will read back out in Module 3 to build a working `passwd`-style entry for this user.
+The user LDIF has no `userPassword`. Two legitimate ways to add one:
 
-Apply it the same way as Part I:
+**Live and interactive** — `ldappasswd` against the existing entry:
 
-```bash
-ldapadd -x -W -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -f /tmp/lfcsuser.ldif
-```
-
-`ldapadd` does not care whether the entries in a file are organizational units, groups, or user accounts — it is all just LDIF against the same tree.
-
----
-
-## Part III: Setting a Password Two Different Ways
-
-Notice that Part II's LDIF has no `userPassword` line. There are two legitimate ways to give this entry a password, and it is worth understanding both, because you will see each used depending on context.
-
-**Live, connected, and interactive** — using `ldappasswd` against the already-created entry:
-
-```bash
+```sh
 ldappasswd -x -W -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -S "uid=lfcsuser,ou=people,dc=example,dc=com"
 ```
 
-`-S` prompts for the *new* password belonging to the target DN — a separate prompt from `-W`'s admin bind password. This runs the LDAP Password Modify extended operation live against the running server: the admin bind performs the change on the user's behalf, and the plaintext password is only ever typed at this one interactive prompt — never placed in a command-line argument or saved into a file.
+`-S` prompts for the *new* password for the target DN (a separate prompt from `-W`'s admin bind password). This runs the LDAP Password Modify extended operation live; the plaintext is typed only at that prompt.
 
-**Offline and pre-computed** — using `slappasswd` to produce a hash first, exactly as Module 1 did for the admin password, then embedding that hash directly as a `userPassword:` attribute line inside the entry's LDIF at creation time. This second approach is what you will see in scripted, non-interactive setups (including this course's own lab bootstrap automation) — there is no live directory connection required at the moment the hash is generated, which makes it the natural choice whenever a password needs to be set as part of an unattended provisioning step rather than a human typing at a prompt.
+**Offline and pre-computed** — `slappasswd` produces a hash, which goes straight into the entry's LDIF as a `userPassword:` line at creation time. This is what scripted, non-interactive provisioning uses — no live connection needed when the hash is generated. Either way, a working hashed password ends up in the directory and no plaintext is left in a file.
 
-Both approaches produce a working, hashed password in the directory. Neither should ever leave a plaintext password sitting in a saved file.
+> [!TIP]
+> **Try it — set the password, confirm it took**
+>
+> ```sh
+> ldappasswd -x -w 'LdapRoot!2024' -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -s 'LfcsLdap!2024' "uid=lfcsuser,ou=people,dc=example,dc=com"
+> ldapsearch -x -w 'LdapRoot!2024' -D "cn=admin,dc=example,dc=com" -H ldap://127.0.0.1 -b "uid=lfcsuser,ou=people,dc=example,dc=com" -LLL userPassword
+> ```
+>
+> Expect something like:
+>
+> ```text
+> dn: uid=lfcsuser,ou=people,dc=example,dc=com
+> userPassword:: e1NTSEF9...redacted...
+> ```
+>
+> (`-s '<newpw>'` supplies the new password inline for the playground; use `-S` to be prompted on a real host.) The `userPassword` attribute now exists, stored as a `{SSHA}` hash — the `::` and base64 are just how `ldapsearch` prints a non-ASCII value.
 
----
+## Two claims, two proofs
 
-## Part IV: Two Different Claims, Two Different Proofs
+An entry *existing* and a bind *succeeding* are different claims, and different commands prove each.
 
-Here is the idea this entire module is really building toward: **an entry existing and a bind succeeding are two different claims, and only one command actually proves each.**
+A plain anonymous search confirms the entry is there and readable — nothing about encryption:
 
-A plain anonymous search confirms the entry is there and readable, but proves nothing about encryption:
-
-```bash
+```sh
 ldapsearch -x -H ldap://127.0.0.1 -b "dc=example,dc=com" "(uid=lfcsuser)"
 ```
 
-Requiring StartTLS changes that:
+Adding `-ZZ` requires the StartTLS upgrade to succeed first. The distinction between `-Z` and `-ZZ` matters: a single `-Z` *attempts* StartTLS but silently falls back to plaintext if it fails, so success tells you nothing; `-ZZ` *requires* it and aborts with an error otherwise. To *prove* encryption, `-ZZ` is the only one that does.
 
-```bash
-ldapsearch -x -ZZ -H ldap://127.0.0.1 -b "dc=example,dc=com" "(uid=lfcsuser)"
-```
+Even a successful `-ZZ` search only proves the entry is readable over TLS — not that `lfcsuser`'s own password is right, because that search ran anonymously or as admin. Proving the *credential* needs a bind as that user. `ldapwhoami` performs the "Who am I?" extended operation: no result set to misread, it returns exactly the identity the server tied to the bind, or an explicit failure.
 
-The distinction between `-Z` and `-ZZ` matters more than it looks. A single `-Z` *attempts* StartTLS but silently falls back to the original plaintext connection if negotiation fails — success tells you nothing conclusive, because you cannot tell from the result whether TLS was actually used or quietly skipped. `-ZZ` *requires* the StartTLS upgrade to succeed and aborts the whole operation with an explicit error if it does not. When the goal is to *prove* encryption happened, `-ZZ` is the only one of the two that actually does that.
-
-Even a successful `-ZZ` search, though, only proves the entry is readable over an encrypted connection — it says nothing about whether `lfcsuser`'s own password is correct, because that search almost certainly ran as the admin identity or anonymously. Proving the *credential* itself requires an actual bind attempt as that user:
-
-```bash
+```sh
 ldapwhoami -x -D "uid=lfcsuser,ou=people,dc=example,dc=com" -W -ZZ -H ldap://127.0.0.1
 ```
 
-`ldapwhoami` performs the "Who am I?" extended operation. There is no result set to parse, no filter to get subtly wrong — it returns exactly one thing: the identity the server associates with the bind that was just attempted, or an explicit failure. Combined with `-ZZ`, a correct response (typically echoing back the bind DN) is the cleanest possible single-command proof of three things at once: the entry exists, the password is correct, and the whole exchange happened over TLS.
+> [!TIP]
+> **Try it — search proof, then bind proof**
+>
+> ```sh
+> ldapsearch -x -ZZ -H ldap://127.0.0.1 -b "dc=example,dc=com" -LLL "(uid=lfcsuser)" dn
+> ldapwhoami -x -D "uid=lfcsuser,ou=people,dc=example,dc=com" -w 'LfcsLdap!2024' -ZZ -H ldap://127.0.0.1
+> ldapwhoami -x -D "uid=lfcsuser,ou=people,dc=example,dc=com" -w 'wrong-password' -ZZ -H ldap://127.0.0.1
+> ```
+>
+> Expect something like:
+>
+> ```text
+> dn: uid=lfcsuser,ou=people,dc=example,dc=com
+> dn:uid=lfcsuser,ou=people,dc=example,dc=com
+> ldap_bind: Invalid credentials (49)
+> ```
+>
+> The `-ZZ` search finds the entry over an enforced-encrypted channel. The first `ldapwhoami` binds *as* `lfcsuser` over TLS and the server echoes the DN back — one command proving entry exists + password correct + channel encrypted. The wrong-password attempt fails with `Invalid credentials (49)`, which is what a real bind check looks like when it should fail.
 
-It is worth deliberately trying the same bind *without* `-ZZ` first:
-
-```bash
-ldapwhoami -x -D "uid=lfcsuser,ou=people,dc=example,dc=com" -W -H ldap://127.0.0.1
-```
-
-Depending on whether the server enforces TLS for simple binds, this either fails outright with a confidentiality-required error, or "succeeds" while having sent the password unencrypted. Either outcome is instructive: it makes concrete, rather than theoretical, why the `-ZZ` version above is the one that actually matters for a directory that claims to take security seriously.
-
----
-
-## Self-Check and Verification
-
-Test your understanding before moving on to client integration:
-1.  **LDIF Structure**: What are the two required components of every LDIF entry, and what does a blank line mean between two entries in the same file?
-2.  **Object Classes**: Why does a `posixAccount` entry almost always need `inetOrgPerson` (or another structural class) alongside it, instead of `posixAccount` by itself? *(Answer: `posixAccount` is an auxiliary class supplying only POSIX attributes; it doesn't provide the structural backbone every entry requires, so it's paired with a structural class like `inetOrgPerson`.)*
-3.  **Proving TLS**: Why does `-ZZ` prove something that `-Z` cannot? *(Answer: `-Z` silently falls back to plaintext on failure, so success is ambiguous; `-ZZ` aborts on failure, so success is unambiguous proof the encrypted upgrade actually happened.)*
-4.  **Search vs. Bind**: If `ldapsearch` finds `lfcsuser`'s entry, have you proven the password is correct? *(Answer: No — a search proves the entry exists and is readable under whatever identity performed the search; only a successful bind as that specific user, e.g. via `ldapwhoami`, proves the credential itself is valid.)*
+> [!WARNING]
+> **Common pitfalls — populating a directory**
+>
+> - Missing blank line between LDIF entries — `ldapadd` parses them as one malformed entry and rejects the file. It reads as a content error but is a formatting one.
+> - `posixAccount` with no structural class — `Object class violation (65)`, "no structural object class provided". Add `inetOrgPerson`.
+> - Adding a child before its parent `ou=` exists — fails; there is no implicit parent creation.
+> - Password on the command line with `-w` on a real host — visible in `ps` and shell history. Use `-W` / `-S` to be prompted.
+> - Trusting a `-Z` result — it may have fallen back to plaintext. Use `-ZZ` when the point is to prove TLS.
+> - Concluding a search proves the password — it proves the entry is readable under whoever ran the search. Only `ldapwhoami` (or a real bind) as that user proves the credential.

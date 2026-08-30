@@ -1,74 +1,92 @@
-# Module 1: LDAP Server Installation & TLS
+# LDAP Server Installation & TLS
 
-> *Directory data and bind passwords cross the wire in cleartext by default — a directory server is not "done" the moment `slapd` is running, only once TLS is actually verified to negotiate, not merely configured.*
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-040/module-01/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-040/module-01/playground
+> astrona destroy ldap-server-tls-playground
+> ```
 
-Every LDAP client integration you will ever build has to point at something real. Before any host can bind, search, or authenticate against a central directory, that directory has to exist: installed, given a namespace of its own, and wrapped in encryption so that a bind password never travels the network in the clear. This chapter builds exactly that — from a blank virtual machine to a running, TLS-capable, still-empty OpenLDAP server. The next module fills it with data; the module after that connects a client to it. This one is about standing the server up correctly the first time.
+Before any host can bind, search, or authenticate against a central directory, that directory has to exist: installed, given a namespace of its own, and wrapped in encryption so a bind password never crosses the network in the clear. This module builds exactly that — from a running-but-unconfigured `slapd` to a TLS-capable, still-empty OpenLDAP server serving `dc=example,dc=com`. The next module fills it with data; the one after connects a client. Here the job is standing the server up correctly.
 
----
+> *`slapd` running is not the same as TLS working — a directory is "done" only once an encrypted handshake is verified to negotiate, not merely configured.*
 
-## Part I: The Directory That Isn't a File
+## Learning objectives
 
-If you have configured other Linux services before, your instinct on meeting `slapd` — the OpenLDAP daemon — will be to look for a single configuration file, edit it with `vi`, and restart the service. That instinct will fail you here, and understanding *why* is the single most important idea in this module.
+After this module you can:
 
-Modern OpenLDAP does not store its running configuration in a flat `slapd.conf` text file. Instead, it stores configuration as a live, LDAP-queryable tree rooted at `cn=config`. This is often called **OLC** ("On-Line Configuration"). Every setting — the base DN this server serves, the admin identity, the TLS certificate paths, the listening protocols — is itself an LDAP entry with attributes, sitting inside this special tree, right alongside (but administratively separate from) the actual directory data.
+- Explain why modern OpenLDAP has no `slapd.conf`, and change `cn=config` with `ldapmodify` over `ldapi:///` and SASL EXTERNAL.
+- Set a server's base DN, admin bind DN, and hashed admin password on the `mdb` database entry.
+- Generate a password hash with `slappasswd`, and explain why a plaintext `olcRootPW` is a credential leak.
+- Make a TLS key readable by the `openldap` service account and wire the certificate into `cn=config`.
+- Distinguish StartTLS on port 389 from native LDAPS on port 636, and enable the 636 listener.
+- Verify TLS at the transport layer with `openssl s_client` and at the LDAP layer with `ldapsearch -ZZ`.
 
-Why go to this trouble? Because a tree that lives inside the running server can be:
-- **Changed without a restart.** `slapd` re-reads its own configuration the moment you modify it, the same way it would notice a new user entry appear.
-- **Secured with the same access controls as regular data.** Who is allowed to view or change TLS settings is itself an LDAP authorization question, not a filesystem permission question.
-- **Queried and audited using the exact same tools** — `ldapsearch`, `ldapmodify` — you already use for ordinary directory data.
+## Before you start
 
-The practical consequence: every configuration change in this module is an LDAP operation. You do not open a text editor and change a line. You write a small LDIF file describing exactly what should change, and you apply it with `ldapmodify` against the `cn=config` tree, authenticating over a special local channel. That channel is the `ldapi:///` UNIX socket, combined with SASL's `EXTERNAL` mechanism:
+You should be comfortable with `systemctl`, installing packages, editing config files, and reading `ss` output. It helps to know that TLS needs a certificate plus a private key and that a "handshake" is the negotiation that sets up the encrypted channel. One term used throughout: a **DN** (Distinguished Name) is a unique, path-like name for an entry in the directory tree, read right-to-left from the root — `cn=admin,dc=example,dc=com` sits under `dc=example,dc=com`. **DC** is "domain component"; `dc=example,dc=com` is just the DNS name `example.com` written as a tree root.
 
-```bash
-sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" "(olcSuffix=*)" olcSuffix olcRootDN
+The playground VM already has:
+
+- `slapd` (the OpenLDAP daemon) and `ldap-utils` installed; `slapd` running on port `389` with only the package defaults.
+- A self-signed certificate and key at `/etc/ldap/certs/ldap-server.crt` / `.key`, owned by the `openldap` service account, with `CN=localhost` and SANs for `localhost` and `127.0.0.1`.
+- Port `636` **not** listening yet.
+
+Open a shell on it with:
+
+```sh
+astrona ssh astro-ldap-server-tls-playground
 ```
 
-`-Y EXTERNAL -H ldapi:///` tells the LDAP client: authenticate using my own operating-system identity (root, via the UNIX socket's peer credentials) rather than a bind DN and password. `slapd` trusts a local root process reaching it this way as equivalent to administrative access over `cn=config` — no bind password needed at all. This is the standard way to administer OLC, and you will use it repeatedly in this module.
+Every command block below runs **inside that VM**.
 
----
+## Where this fits
 
-## Part II: Installing the Daemon
+This is the foundation the rest of Section 040 stands on: Module 2 writes users and groups into the tree you name here, and Module 3 points `sssd` at the TLS endpoint you verify here. The certificate mechanics themselves belong to the course's PKI / OpenSSL material — this module takes the cert as given and focuses on wiring it into the daemon and proving it negotiates.
 
-Install the server daemon and the client utilities together:
+## The directory that is not a file
 
-```bash
-sudo apt update && sudo apt install -y slapd ldap-utils
-```
+If you have configured other Linux services, your instinct on meeting `slapd` (read: *Standalone LDAP Daemon*) is to find one config file, edit it, and restart. That fails here. Modern OpenLDAP does not keep its running configuration in a flat `slapd.conf`. It stores configuration as a live, LDAP-queryable tree rooted at `cn=config` — often called **OLC** (On-Line Configuration). Every setting — the base DN served, the admin identity, the TLS paths, the listening protocols — is an LDAP entry with attributes inside that tree.
 
-`slapd` is the directory daemon itself. `ldap-utils` supplies every command-line tool you will use throughout this section and the next: `ldapsearch`, `ldapadd`, `ldapmodify`, `ldappasswd`, and `slappasswd`. (On a RHEL-family system, the equivalent install is `sudo dnf install -y openldap-servers openldap-clients` — but note that RHEL's package starts with an essentially empty configuration, while Debian/Ubuntu's `slapd` package runs an interactive `debconf` wizard on install that pre-seeds an organization name, a base DN guessed from the system's hostname, and an admin password. Either way, you should not assume the package's default values match the base DN your organization actually needs — treat Part III below as mandatory, not optional, regardless of distribution.)
+The payoff: configuration can change without a restart (`slapd` re-reads its own tree), is protected by the same access controls as directory data, and is inspected with the same tools (`ldapsearch`, `ldapmodify`). The cost: every change is an LDAP operation. You write a small **LDIF** (LDAP Data Interchange Format) file describing what should change and apply it with `ldapmodify` against `cn=config`, authenticating over a local-only channel: the `ldapi:///` UNIX socket combined with SASL's `EXTERNAL` mechanism. `-Y EXTERNAL -H ldapi:///` tells the client "authenticate as my OS identity (root, via the socket's peer credentials), not a bind DN and password" — `slapd` treats a local root process reaching it this way as administrative over `cn=config`.
 
-Before changing anything, look at what the package install already produced:
+> [!TIP]
+> **Try it — the server is up, and its config is a tree**
+>
+> ```sh
+> systemctl is-active slapd
+> sudo ss -tlnp | grep -E ':389|:636'
+> sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config -LLL dn
+> ```
+>
+> Expect something like:
+>
+> ```text
+> active
+> LISTEN 0  1024  *:389  *:*  users:(("slapd",pid=800,fd=8))
+> dn: cn=config
+> dn: cn=schema,cn=config
+> dn: cn={0}core,cn=schema,cn=config
+> dn: olcDatabase={-1}frontend,cn=config
+> dn: olcDatabase={0}config,cn=config
+> dn: olcDatabase={1}mdb,cn=config
+> ```
+>
+> Port `389` is listening, `636` is not (yet). The `ldapsearch` output is the *configuration itself*, returned as directory entries — `olcDatabase={1}mdb,cn=config` is the one that backs your actual data. `-LLL` just trims comments and version noise from the output.
 
-```bash
-sudo systemctl status slapd
-sudo ss -tlnp | grep -E ':389|:636'
-```
+## Claiming a namespace and an admin identity
 
-You should see `slapd` active, and port `389` already listening — that arrives automatically with the package. Port `636` (native LDAPS) will not be listening yet; enabling it is Part IV of this chapter.
+The base DN this server is authoritative for, and the identity allowed to write under it, live on that `olcDatabase={1}mdb,cn=config` entry as three attributes: `olcSuffix` (the base DN), `olcRootDN` (the admin bind DN), and `olcRootPW` (the admin password, as a hash). The numeric index can differ between installs; `sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config "(objectClass=olcMdbConfig)" dn` shows which entry it is on your system.
 
----
+Never write a plaintext password. `slappasswd` (read: *slap password* — it makes a hash `slapd` can store) prompts for the password once and prints a salted `{SSHA}` hash suitable to drop straight into an LDIF. LDIF files get pasted into tickets and committed by accident; a plaintext `olcRootPW` in one is a permanent leak, a hash is not.
 
-## Part III: Claiming a Namespace and an Admin Identity
+The modify LDIF has a fixed shape: a `dn:` naming the target entry, `changetype: modify`, then one or more `replace:` blocks separated by a line containing only `-`.
 
-Every directory serves one or more **base DNs** (Distinguished Names) — the root of the tree it is authoritative for. For this module, that base DN is `dc=example,dc=com`, and the administrative identity permitted to write anything under it is `cn=admin,dc=example,dc=com`.
-
-These values live on a specific entry inside `cn=config`: the database entry that backs your actual directory data, typically named `olcDatabase={1}mdb,cn=config` on a modern OpenLDAP install using the `mdb` backend. (The exact numeric index can differ; if in doubt, `sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config "(objectClass=olcMdbConfig)" dn` will show you which entry it actually is on your system.)
-
-Before writing a password anywhere, generate a salted hash for it — never a plaintext value:
-
-```bash
-slappasswd
-# New password:
-# Re-enter new password:
-# {SSHA}gXK...redacted...
-```
-
-`slappasswd` prompts interactively and prints a hash (`{SSHA}` by default) suitable for direct use in an LDIF as `olcRootPW`. The plaintext password is typed once, into the prompt, and never written to disk, shell history, or a saved file. This matters practically: LDIF files get copied around, pasted into tickets, and occasionally committed to version control by accident. A plaintext `olcRootPW` sitting in one of those files is a permanent credential leak; a hash is not reversible in the same way.
-
-With a hash in hand, apply the base DN, admin DN, and hashed password as a single modify operation:
-
-```bash
-cat > /tmp/set-suffix.ldif << 'EOF'
+```sh
+HASH=$(slappasswd -s 'LdapRoot!2024')
+cat > /tmp/set-suffix.ldif << EOF
 dn: olcDatabase={1}mdb,cn=config
 changetype: modify
 replace: olcSuffix
@@ -78,51 +96,71 @@ replace: olcRootDN
 olcRootDN: cn=admin,dc=example,dc=com
 -
 replace: olcRootPW
-olcRootPW: {SSHA}gXK...redacted...
+olcRootPW: ${HASH}
 EOF
-
 sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/set-suffix.ldif
 ```
 
-Notice the shape of this LDIF: a `dn:` naming exactly which config entry is being touched, a `changetype: modify`, and then one or more `replace:` attribute blocks separated by a line containing only a hyphen (`-`). This is the pattern you will reuse for every `cn=config` change in this module — only the target `dn:` and the attributes change.
+(`slappasswd -s '<pw>'` takes the password as an argument for a scripted flow; run `slappasswd` with no `-s` to be prompted instead and keep it out of shell history.) `olcRootDN` / `olcRootPW` define an identity with unrestricted access to this one database, independent of any regular entry — it is what Module 2 uses to add users.
 
-`olcRootDN`/`olcRootPW` define an identity with unrestricted access to this one database, independent of any regular directory entry. It is the identity Module 2 will use to add users and groups, and the identity a client would use for an authenticated (rather than anonymous) bind.
+> [!TIP]
+> **Try it — name the directory, then read the setting back**
+>
+> ```sh
+> HASH=$(slappasswd -s 'LdapRoot!2024')
+> printf 'dn: olcDatabase={1}mdb,cn=config\nchangetype: modify\nreplace: olcSuffix\nolcSuffix: dc=example,dc=com\n-\nreplace: olcRootDN\nolcRootDN: cn=admin,dc=example,dc=com\n-\nreplace: olcRootPW\nolcRootPW: %s\n' "$HASH" > /tmp/set-suffix.ldif
+> sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/set-suffix.ldif
+> sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config -LLL "(olcSuffix=*)" olcSuffix olcRootDN
+> ```
+>
+> Expect something like:
+>
+> ```text
+> modifying entry "olcDatabase={1}mdb,cn=config"
+> dn: olcDatabase={1}mdb,cn=config
+> olcSuffix: dc=example,dc=com
+> olcRootDN: cn=admin,dc=example,dc=com
+> ```
+>
+> The `modifying entry` line means the change applied with no restart. The read-back shows `slapd` is now authoritative for `dc=example,dc=com` with `cn=admin,dc=example,dc=com` as its admin. `olcRootPW` is not shown — it is stored hashed.
 
----
+## A certificate the daemon can actually read
 
-## Part IV: Getting a Certificate the Daemon Can Actually Read
+`slapd` does **not** run as root. It runs as an unprivileged service account — `openldap` on Debian/Ubuntu, often `ldap` on RHEL-family (`ps -o user= -C slapd` confirms). That account must be able to *read* the private key, or TLS setup fails at startup. A world-readable key is a security mistake; a key readable only by `root` when `slapd` runs as `openldap` is the equally common opposite mistake, and it produces a startup failure that looks like a bad certificate rather than a permission problem.
 
-TLS needs a certificate and a private key. Generating one is not the focus of this module (see the dedicated OpenSSL material elsewhere in this course for the full mechanics of `openssl req`), but two details here are worth calling out because they are the most common way this exact setup breaks.
+The playground's key is already `openldap:openldap`, mode `640`. The pattern, for reference:
 
-First, since every lab in this course runs as a single machine reachable at `127.0.0.1`, the certificate's Common Name (or Subject Alternative Name) should match the way clients will actually connect — `localhost` and `127.0.0.1` — rather than an external hostname nobody will ever dial:
-
-```bash
-sudo mkdir -p /etc/ldap/certs
-sudo openssl req -x509 -nodes -newkey rsa:2048 \
-  -keyout /etc/ldap/certs/ldap-server.key \
-  -out /etc/ldap/certs/ldap-server.crt \
-  -days 3650 \
-  -subj "/CN=localhost" \
-  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-```
-
-Second — and this is the failure point worth memorizing — `slapd` does not run as root. It runs as a dedicated, unprivileged service account (`openldap` on Debian/Ubuntu, often `ldap` on RHEL-family systems; check with `ps -o user= -C slapd` if you are ever unsure). That account needs to be able to *read* the private key file, or TLS setup fails at daemon startup:
-
-```bash
+```sh
 sudo chown openldap:openldap /etc/ldap/certs/ldap-server.key /etc/ldap/certs/ldap-server.crt
 sudo chmod 640 /etc/ldap/certs/ldap-server.key
 sudo chmod 644 /etc/ldap/certs/ldap-server.crt
 ```
 
-A key that is world-readable is a security mistake. A key that is *too* restrictive — readable only by `root` when `slapd` runs as `openldap` — is an equally common mistake in the opposite direction, and it produces a startup failure that is easy to misdiagnose as a bad certificate rather than a filesystem permission problem.
+> [!TIP]
+> **Try it — who runs slapd, and can it read the key**
+>
+> ```sh
+> ps -o user= -C slapd
+> ls -l /etc/ldap/certs/
+> sudo -u openldap cat /etc/ldap/certs/ldap-server.key >/dev/null && echo "openldap CAN read the key"
+> ```
+>
+> Expect something like:
+>
+> ```text
+> openldap
+> -rw-r--r-- 1 openldap openldap 1391 Aug 30 12:00 ldap-server.crt
+> -rw-r----- 1 openldap openldap 1704 Aug 30 12:00 ldap-server.key
+> openldap CAN read the key
+> ```
+>
+> `slapd` runs as `openldap`; the key is owned by `openldap` and group-readable but not world-readable; the explicit read test as that user succeeds. If that last line failed, TLS would break at the next restart — and the cause would be this, not the cert.
 
----
+## Wiring the certificate into cn=config
 
-## Part V: Wiring the Certificate into cn=config
+TLS is a property of the daemon, not of one database, so this modify targets `cn=config` directly. Three attributes: `olcTLSCertificateFile`, `olcTLSCertificateKeyFile`, and `olcTLSCACertificateFile` — for a self-signed cert the CA file points back at the cert itself, because it is its own trust anchor.
 
-With a readable certificate and key in place, point the top-level `cn=config` entry at them. TLS is a property of the daemon itself — not of any one database — so this modify targets `cn=config` directly, not the `olcDatabase={1}mdb` entry from Part III:
-
-```bash
+```sh
 cat > /tmp/set-tls.ldif << 'EOF'
 dn: cn=config
 changetype: modify
@@ -135,68 +173,114 @@ olcTLSCertificateKeyFile: /etc/ldap/certs/ldap-server.key
 replace: olcTLSCACertificateFile
 olcTLSCACertificateFile: /etc/ldap/certs/ldap-server.crt
 EOF
-
 sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/set-tls.ldif
 sudo systemctl restart slapd
 ```
 
-For a self-signed certificate, `olcTLSCACertificateFile` simply points back at the certificate itself — it is its own trust anchor. A restart is required here because, unlike most `cn=config` changes, TLS listener setup happens at daemon startup, not purely at runtime.
+A restart is needed here (unlike most `cn=config` changes) because the TLS listener is set up at daemon startup. Restarting `slapd` on this single-VM playground is safe; on a production directory serving live clients, treat it as a brief outage and schedule it.
 
----
+> [!TIP]
+> **Try it — apply the TLS attributes and confirm they stuck**
+>
+> ```sh
+> printf 'dn: cn=config\nchangetype: modify\nreplace: olcTLSCertificateFile\nolcTLSCertificateFile: /etc/ldap/certs/ldap-server.crt\n-\nreplace: olcTLSCertificateKeyFile\nolcTLSCertificateKeyFile: /etc/ldap/certs/ldap-server.key\n-\nreplace: olcTLSCACertificateFile\nolcTLSCACertificateFile: /etc/ldap/certs/ldap-server.crt\n' > /tmp/set-tls.ldif
+> sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/set-tls.ldif
+> sudo systemctl restart slapd
+> sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config -LLL "(cn=config)" olcTLSCertificateFile olcTLSCertificateKeyFile
+> ```
+>
+> Expect something like:
+>
+> ```text
+> modifying entry "cn=config"
+> dn: cn=config
+> olcTLSCertificateFile: /etc/ldap/certs/ldap-server.crt
+> olcTLSCertificateKeyFile: /etc/ldap/certs/ldap-server.key
+> ```
+>
+> `slapd` came back up after the restart (if it did not, `journalctl -u slapd -n 30` would show a cert/key/permission reason). The attributes read back with the paths you set — the daemon now has a TLS identity.
 
-## Part VI: StartTLS on 389, or Native LDAPS on 636 — Why Both
+## StartTLS on 389, or native LDAPS on 636
 
-OpenLDAP can offer encryption two different ways, and understanding the distinction matters for troubleshooting later, not just for passing this module.
+OpenLDAP offers encryption two ways, and the distinction matters for troubleshooting later.
 
-**Native LDAPS**, on port 636, wraps the entire connection in TLS from the very first byte — exactly like HTTPS. The client knows before it speaks a word of the LDAP protocol that the channel is encrypted.
+- **Native LDAPS**, port 636, wraps the whole connection in TLS from the first byte — like HTTPS. The client knows the channel is encrypted before it speaks any LDAP.
+- **StartTLS**, on the standard port 389, starts as a plain connection and upgrades in place, mid-conversation, via an LDAP extended operation. Most modern tooling (`ldapsearch -Z`/`-ZZ`, `sssd`) defaults to this.
 
-**StartTLS**, on the standard port 389, begins as a plain, unencrypted connection and then explicitly upgrades in place, mid-conversation, via an LDAP extended operation. This is what most modern tooling (`ldapsearch -Z`/`-ZZ`, `sssd`) defaults to, because it lets one port serve both TLS-aware clients and, if the server allows it, older plaintext ones — no second listening port required in principle.
+A production directory commonly offers both. The 636 listener is enabled by adding `ldaps:///` to `slapd`'s list of listening URLs — on Debian/Ubuntu that is `SLAPD_SERVICES` in `/etc/default/slapd`:
 
-A production directory commonly offers both anyway, for compatibility with whatever mix of client software actually exists in an environment. To enable the LDAPS listener, add `ldaps:///` to `slapd`'s list of listening URLs. On Debian/Ubuntu this list lives in `/etc/default/slapd`, in the `SLAPD_SERVICES` variable:
-
-```bash
-sudo vi /etc/default/slapd
-```
-
-```
-SLAPD_SERVICES="ldap:/// ldaps:/// ldapi:///"
-```
-
-```bash
+```sh
+sudo sed -i 's|^SLAPD_SERVICES=.*|SLAPD_SERVICES="ldap:/// ldaps:/// ldapi:///"|' /etc/default/slapd
 sudo systemctl restart slapd
 ```
 
-Three listeners, three purposes: `ldap:///` is the plain/StartTLS-capable port 389, `ldaps:///` is native TLS on 636, and `ldapi:///` is the local UNIX socket used throughout this module for `cn=config` administration.
+Three listeners, three jobs: `ldap:///` is plain/StartTLS-capable 389, `ldaps:///` is native TLS on 636, `ldapi:///` is the local socket used for `cn=config` admin.
 
----
+> [!TIP]
+> **Try it — bring up the 636 listener**
+>
+> ```sh
+> grep SLAPD_SERVICES /etc/default/slapd
+> sudo sed -i 's|^SLAPD_SERVICES=.*|SLAPD_SERVICES="ldap:/// ldaps:/// ldapi:///"|' /etc/default/slapd
+> sudo systemctl restart slapd
+> sudo ss -tlnp | grep -E ':389|:636'
+> ```
+>
+> Expect something like:
+>
+> ```text
+> SLAPD_SERVICES="ldap:/// ldapi:///"
+> LISTEN 0 1024 *:389 *:* users:(("slapd",pid=1200,fd=8))
+> LISTEN 0 1024 *:636 *:* users:(("slapd",pid=1200,fd=9))
+> ```
+>
+> Before the edit, only `ldap:///` and `ldapi:///` were listed; after, `636` joins `389` in the `ss` output. A typo in `SLAPD_SERVICES` would stop `slapd` starting — check `systemctl status slapd` if the last line is missing `636`.
 
-## Part VII: Proving It, Not Assuming It
+## Proving it, not assuming it
 
-A configuration that "should" work is not the same as a configuration that does. Verify at two separate layers, because they can fail independently of each other.
+A config that "should" work is not one that does. Verify at two layers, because they fail independently.
 
-First, the transport layer — does a raw TLS handshake even complete?
+The **transport layer** — does a raw TLS handshake complete?
 
-```bash
+```sh
 openssl s_client -connect 127.0.0.1:636 -showcerts </dev/null
 ```
 
-A full certificate chain and a `Verify return code:` line at the end mean the handshake worked. `18 (self-signed certificate)` is an *expected* and acceptable result here — it tells you the certificate isn't signed by a public CA, which is fine for a self-signed lab cert; it does not mean the handshake failed.
+A full certificate chain and a `Verify return code:` line mean the handshake worked. `Verify return code: 18 (self-signed certificate)` is *expected and fine* here — it says the cert is not signed by a public CA, not that the handshake failed.
 
-Second, the LDAP application layer — does StartTLS actually negotiate through `slapd` itself?
+The **LDAP application layer** — does StartTLS actually negotiate through `slapd`?
 
-```bash
+```sh
 ldapsearch -x -ZZ -H ldap://127.0.0.1 -b "" -s base
 ```
 
-`-ZZ` requires StartTLS to succeed before the search proceeds at all, and aborts with an explicit error if it doesn't — so any search result returned here is real proof the encrypted upgrade actually worked end to end, not just that port 636 happens to be open. If `openssl s_client` succeeds but this command fails, you have just isolated the problem: the network/TLS layer is fine, and the fault is in how `cn=config`'s TLS attributes are wired to the LDAP-level StartTLS operation, or in client-side trust configuration — not in the certificate or key files themselves.
+`-x` is simple (non-SASL) auth; `-b "" -s base` reads just the root DSE (a tiny always-present entry). `-ZZ` *requires* StartTLS to succeed before the search runs and aborts with an error otherwise — so any result here is real proof the encrypted upgrade worked end to end. If `openssl s_client` succeeds but this fails, the transport is fine and the fault is in how `cn=config`'s TLS attributes wire to the StartTLS operation, or in client trust — not the cert files.
 
-At this point, `slapd` is installed, serving `dc=example,dc=com`, administered by `cn=admin,dc=example,dc=com`, and reachable over both StartTLS and native LDAPS with a verified handshake. It is also completely empty. That is exactly where Module 2 picks up.
+> [!TIP]
+> **Try it — both layers, in order**
+>
+> ```sh
+> openssl s_client -connect 127.0.0.1:636 </dev/null 2>/dev/null | grep -E 'subject=|Verify return code'
+> ldapsearch -x -ZZ -H ldap://127.0.0.1 -b "" -s base namingContexts
+> ```
+>
+> Expect something like:
+>
+> ```text
+> subject=CN = localhost
+> Verify return code: 18 (self-signed certificate)
+> dn:
+> namingContexts: dc=example,dc=com
+> ```
+>
+> The handshake on 636 completes (return code 18 is the expected self-signed result). The `-ZZ` search forced a StartTLS upgrade on 389 and still returned the root DSE, whose `namingContexts` echoes the base DN you set earlier. The server is installed, serving `dc=example,dc=com`, TLS-verified on both paths — and completely empty. That is where Module 2 begins.
 
----
-
-## Self-Check and Verification
-
-Test your understanding before moving forward:
-1.  **Configuration Model**: Why can't you just `vi /etc/ldap/slapd.conf` on a modern OpenLDAP install, and what tool/flags do you use instead to change `cn=config`?
-2.  **Protocol Distinction**: What is actually different, mechanically, between StartTLS on 389 and native LDAPS on 636? *(Answer: StartTLS begins in plaintext on the standard port and upgrades in place via an LDAP extended operation; native LDAPS encrypts the entire connection from the first byte on its own dedicated port, like HTTPS.)*
-3.  **Isolating a Failure**: If `openssl s_client -connect 127.0.0.1:636` completes a handshake but `ldapsearch -x -ZZ -H ldap://127.0.0.1` still fails, which layer of the stack is *not* the problem, and why? *(Answer: The network/TLS transport layer is not the problem — it already proved it works. The fault is at the LDAP application layer: how `cn=config`'s TLS attributes are wired to the StartTLS operation, or a client-side trust issue.)*
+> [!WARNING]
+> **Common pitfalls — LDAP server + TLS**
+>
+> - Reaching for `vi /etc/ldap/slapd.conf` — there is no such file on a modern install. Change `cn=config` with `ldapmodify -Y EXTERNAL -H ldapi:///`.
+> - Plaintext `olcRootPW` — always `slappasswd` first; the hash goes in the LDIF, the plaintext never touches disk.
+> - Key readable only by root while `slapd` runs as `openldap` — TLS fails at startup and the error misleads you toward the cert. Check `ps -o user= -C slapd` and the key's ownership/mode.
+> - Forgetting the restart after the TLS modify — the listener is built at startup, so TLS attributes alone do not open 636.
+> - Typo in `SLAPD_SERVICES` — `slapd` will not start. `systemctl status slapd` and `journalctl -u slapd` show why.
+> - Treating `openssl s_client` success as full proof — it only proves transport. `ldapsearch -ZZ` is what proves StartTLS negotiates through `slapd`.

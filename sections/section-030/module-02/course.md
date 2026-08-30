@@ -1,104 +1,202 @@
-# Chapter 2: Extending PATH Safely
+# Extending PATH Safely
 
-Adding a personal script directory to `$PATH` looks trivial — one `export` line, done. Right up until you place it wrong. Put that directory at the *front* of the search order, and any file inside it with the same name as a real system command now runs *instead* of that command, for anyone whose `PATH` looks there first. A script named `ls`, or worse, `sudo`, sitting in a directory you can write to has just quietly hijacked that command name. This chapter builds `PATH` changes the way the exam — and a security-conscious production environment — actually expects: correctly ordered, and correctly persisted.
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-030/module-02/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-030/module-02/playground
+> astrona destroy safe-path-playground
+> ```
 
-> *`PATH` is searched left to right, first match wins — where you put a new directory in that list is a security decision, not just a formatting choice.*
+Adding a personal script directory to `PATH` looks trivial — one `export` line. Right up until you place it wrong. Put that directory at the *front* of the search order and any file in it with the same name as a real command runs *instead* of that command. A script named `ls` — or `sudo` — in a directory you can write to has quietly hijacked that name. This module builds `PATH` changes the way a security-conscious environment expects: correctly ordered, and correctly persisted.
 
----
+> *`PATH` is searched left to right, first match wins — where a new directory goes in that list is a security decision, not a formatting one.*
 
-## Part I: How the Shell Actually Finds a Command
+## Learning objectives
 
-When you type a bare command name — `ls`, `hello-work`, whatever — the shell does not consult some central registry. It walks the colon-separated list of directories in `$PATH`, from left to right, and runs the **first** executable file it finds with that exact name. It does not check whether a later directory also has a match, and it does not care which one is "the real one" in some abstract sense — first match wins, full stop.
+After this module you can:
 
-```bash
-echo $PATH
-type ls
+- Explain how the shell resolves a bare command name through `PATH` — left to right, first match wins.
+- Use `type` instead of `which` to see what a name will actually run, aliases and builtins included.
+- Explain why prepending a user-writable directory to `PATH` is a shadowing risk and appending is not.
+- Append a directory to `PATH` persistently, in the login-shell dotfile the account actually reads.
+- Use `hash -r` to clear bash's command-location cache before trusting a `type` result after a `PATH` change.
+
+## Before you start
+
+You should know that `PATH` is a colon-separated list of directories, what `export` does, how to make a file executable with `chmod +x`, and how to edit a dotfile. `su - candidate` (login shell as that user) is how the checkpoints test a fresh session.
+
+The playground VM already has:
+
+- User `candidate` — an ordinary account; reach it with `su - candidate` from root, no password.
+- `/home/candidate/work/helper-tool` — an executable script whose name matches no system command.
+- `candidate`'s dotfiles left at the distro defaults; no decoy planted.
+
+Open a shell on it with:
+
+```sh
+astrona ssh astro-safe-path-playground
 ```
 
-`type` is the tool to reach for here, not `which`. `which` only knows how to scan `PATH` for a matching file; `type` is a shell builtin that also understands aliases, functions, and other builtins — the full set of things that could intercept a command name before `PATH` is ever consulted. When you want to know, with certainty, what will actually execute when you type a name, `type` is the more trustworthy answer.
+Every command block below runs **inside that VM**.
 
----
+## Where this fits
 
-## Part II: The Shadowing Trap
+This is one concrete application of the previous module's question — "which dotfile?" — with a security dimension attached. A `PATH` entry in the wrong *position* is worse than one in the wrong *file*: it can let a directory a user (or an attacker who fooled that user) can write to override a real command, including `sudo`. That is the same privilege boundary Section 010's scoped-`sudo` rules protect.
 
-Now picture a personal scripts directory, say `~/work`, added to the *front* of `PATH`:
+## How the shell finds a command
 
-```bash
+Type a bare name — `ls`, `helper-tool` — and the shell does not consult a registry. It walks the colon-separated directories in `PATH` left to right and runs the **first** executable file with that exact name. It does not check whether a later directory also matches. First match wins.
+
+The tool to inspect this is `type`, not `which`. `type` is a shell builtin: it reports what a name will actually run, and it also knows about aliases, shell functions, and other builtins — the things that intercept a name *before* `PATH` is consulted. `which` only scans `PATH` and misses all of that. When you need certainty about what executes, `type` is the trustworthy answer.
+
+> [!TIP]
+> **Try it — the search path, and what resolves right now**
+>
+> ```sh
+> su - candidate -c 'echo "$PATH"; type ls; type helper-tool'
+> ```
+>
+> Expect something like:
+>
+> ```text
+> /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
+> ls is aliased to `ls --color=auto'
+> bash: type: helper-tool: not found
+> ```
+>
+> `ls` resolves through an alias first (a stock Ubuntu shell sets one). `helper-tool` is "not found" — `~/work` is not on `PATH` yet, so its name means nothing. That is the starting point.
+
+## The shadowing trap
+
+Put a personal scripts directory — `~/work` — at the *front* of `PATH`:
+
+```sh
 export PATH="$HOME/work:$PATH"
 ```
 
-If a file named `ls` exists inside `~/work`, the very next time this user types `ls`, the shell finds `~/work/ls` before it ever reaches `/bin/ls` — because `~/work` now comes first in the search order. The real system `ls` is never even considered. Anyone who can write into `~/work` — including, notably, anything that tricked this user into dropping a file there — has effectively hijacked that command name for this account.
+If a file named `ls` exists in `~/work`, the next `ls` finds `~/work/ls` before it reaches `/bin/ls`, because `~/work` now comes first. The real `ls` is never considered. Anyone who can write into `~/work` — including anything that tricked the user into saving a file there — has hijacked that command name for the account.
 
-Appending instead of prepending closes this gap entirely:
+> [!TIP]
+> **Try it — a decoy wins when the directory is prepended**
+>
+> ```sh
+> su - candidate
+> export PATH="$HOME/work:$PATH"
+> printf '#!/bin/bash\necho "decoy ls ran"\n' > ~/work/ls && chmod +x ~/work/ls
+> hash -r
+> type ls
+> ls
+> exit
+> ```
+>
+> Expect something like:
+>
+> ```text
+> /home/candidate/work/ls
+> decoy ls ran
+> ```
+>
+> With `~/work` first, `type ls` now points at the decoy and running `ls` executes it. (`hash -r` is explained shortly — it forces a fresh lookup.) The real `ls` is still on disk; the shell just never gets to it.
 
-```bash
+## Appending closes the gap
+
+Reverse the order — directory last:
+
+```sh
 export PATH="$PATH:$HOME/work"
 ```
 
-With this ordering, every existing system directory is searched *first*. A brand-new tool name that doesn't collide with anything still works exactly the same either way — it's only found in `~/work` because nowhere else has it. But an existing command name is never silently overridden, because the shell already found its real match in an earlier directory before it would ever reach `~/work`. Appending is the behavior that adds convenience without introducing a security regression, and it is the correct default any time a task doesn't explicitly ask for override behavior.
+Now every system directory is searched first. A genuinely new tool name still works — it is found in `~/work` only because nowhere earlier has it. But an existing command name is never overridden, because its real match is found in an earlier directory before the search ever reaches `~/work`. Appending adds the convenience without the security regression; it is the correct default unless a task explicitly asks for override behaviour.
 
----
+> [!TIP]
+> **Try it — appended: real command wins, new tool still found**
+>
+> ```sh
+> su - candidate
+> export PATH="$PATH:$HOME/work"
+> hash -r
+> type ls
+> type helper-tool
+> helper-tool
+> exit
+> ```
+>
+> Expect something like:
+>
+> ```text
+> ls is aliased to `ls --color=auto'
+> helper-tool is /home/candidate/work/helper-tool
+> helper-tool running from ~/work
+> ```
+>
+> `ls` still resolves ahead of `~/work` (the decoy from the previous checkpoint is now last in the search order and loses). `helper-tool`, which collides with nothing, resolves in `~/work` and runs. Both properties at once — that is why append is the safe default.
 
-## Part III: Making It Persistent, in the Right File
+## Making it persistent, in the right file
 
-A `PATH` change typed directly into a running shell only lives as long as that shell does. To survive new logins and new sessions, it has to be written into a dotfile that a login shell actually reads on startup.
+A `PATH` change typed into a running shell lasts only as long as that shell. To survive new logins it must go in a dotfile a **login shell** reads at startup:
 
-```bash
-mkdir -p ~/work
-cat > ~/work/hello-work << 'EOF'
-#!/bin/bash
-echo "running from ~/work"
-EOF
-chmod +x ~/work/hello-work
-
-echo 'export PATH="$PATH:$HOME/work"' >> ~/.bash_profile
+```sh
+echo 'export PATH="$PATH:$HOME/work"' >> /home/candidate/.profile
 ```
 
-`~/.bash_profile` (or `~/.profile`, whichever this account's shell startup actually reads first) is a **login-shell** file — read on a fresh SSH connection or a fresh console login. `~/.bashrc` alone is not a safe substitute here: it is the file read for *interactive non-login* shells, and is not guaranteed to fire for every way a session might actually start. A `PATH` change placed only in `~/.bashrc` can appear to work in a casual test and then mysteriously "not stick" the moment the same user connects a different way.
+Use whichever login-shell file the account actually reads *first*: bash checks `~/.bash_profile`, then `~/.bash_login`, then `~/.profile`, and reads only the first that exists. A stock Ubuntu account has just `~/.profile`. `~/.bashrc` alone is not a safe substitute — it is read for *interactive non-login* shells and is not guaranteed to fire for every way a session starts, so a `PATH` line placed only there can pass a casual test and then "not stick" when the user connects differently.
 
-```bash
-source ~/.bash_profile
-echo $PATH
-hello-work
-```
+After editing, `source` the file into your current shell to test without a full re-login — a shell that was already running has its own in-memory copy of `PATH` from when it started, and editing a file on disk does nothing to it. A brand-new session is the more rigorous proof.
 
-`source` re-reads the dotfile into your *current* shell without waiting for a new login — a shell that was already running when you made the edit has its own private copy of `PATH` from whenever it started, and editing a file on disk does nothing to a process that already has its variables loaded into memory. That's not a bug; it's simply how environment inheritance works. `source` (or a brand-new session) is what actually applies the change to a shell you can test in.
+> [!TIP]
+> **Try it — the change survives a fresh login**
+>
+> ```sh
+> echo 'export PATH="$PATH:$HOME/work"' >> /home/candidate/.profile
+> su - candidate -c 'type helper-tool; helper-tool'
+> ```
+>
+> Expect something like:
+>
+> ```text
+> helper-tool is /home/candidate/work/helper-tool
+> helper-tool running from ~/work
+> ```
+>
+> `su - candidate` is a fresh login shell — it read `~/.profile`, which now appends `~/work`, so `helper-tool` resolves by name with no `export` typed in this session.
 
----
+## The command-location cache — `hash -r`
 
-## Part IV: Proving the Shadow Never Happens
+Bash caches resolved command paths in a hash table the first time it looks each one up, so it does not re-scan `PATH` on every invocation. That cache can mask a `PATH` change: if `ls` was already resolved earlier in a shell, `type ls` may keep reporting the old location even after `PATH` changed. `hash` is the builtin that manages this table; `hash -r` (**r**eset) clears it and forces a fresh lookup.
 
-Persisting the change correctly is only half the job. The task also demands proof that a same-named decoy script never wins over the real system command:
+> [!TIP]
+> **Try it — the cache hides a change until you clear it**
+>
+> ```sh
+> su - candidate
+> export PATH="$HOME/work:$PATH"
+> ls >/dev/null
+> printf '#!/bin/bash\necho "decoy"\n' > ~/work/ls && chmod +x ~/work/ls
+> type ls
+> hash -r
+> type ls
+> exit
+> ```
+>
+> Expect something like:
+>
+> ```text
+> ls is hashed (/usr/bin/ls)
+> ls is /home/candidate/work/ls
+> ```
+>
+> The first `type ls` still shows the cached `/usr/bin/ls` even though `~/work/ls` now exists earlier in `PATH`. After `hash -r`, the lookup is redone and `type` reports the decoy. Always run `hash -r` before trusting a `type` or `which` result taken right after a `PATH` edit.
 
-```bash
-cat > ~/work/ls << 'EOF'
-#!/bin/bash
-echo "decoy ls — should never run"
-EOF
-chmod +x ~/work/ls
-hash -r
-type ls
-ls
-```
+> [!WARNING]
+> **Common pitfalls — extending PATH**
+>
+> - Prepending a writable directory (`$HOME/work:$PATH`) — a same-named file there shadows a real command, `sudo` included. Append (`$PATH:$HOME/work`) unless override is explicitly required.
+> - Persisting the line in `~/.bashrc` only — that is the non-login file. Use the account's login-shell file (`~/.profile` on stock Ubuntu) so it survives every login path.
+> - Testing in the shell you edited — it holds its own `PATH` from startup. `source` the file or open a new session.
+> - Trusting `type` / `which` right after a `PATH` change — bash may be answering from its cache. `hash -r` first.
 
-That `hash -r` is not optional busywork. Bash caches resolved command locations in a hash table the moment it first looks one up, specifically so it doesn't have to re-scan `PATH` on every single invocation. If `ls` was already resolved once earlier in this shell session, the cached entry can mask the true current behavior of `PATH` — giving you a false sense of security (or a false alarm) depending on what was cached. `hash -r` clears that table and forces a genuinely fresh lookup, honoring the append-only ordering: `type ls` should still report the real system binary (`/bin/ls` or `/usr/bin/ls`), because every system directory in `PATH` is searched before `~/work` is ever reached.
+## Section recap
 
-```bash
-rm ~/work/ls   # clean up the decoy once you've proven the point
-```
-
----
-
-## Chapter Summary
-
-*   `PATH` is searched left to right; the first executable match found wins, full stop.
-*   Prepending a user-writable directory is a shadowing risk — a same-named file there intercepts a real command before the system version is ever reached. Appending is the safe default.
-*   Persist a personal `PATH` change in a login-shell dotfile (`~/.bash_profile`/`~/.profile`), not `~/.bashrc` alone, so it survives new logins and SSH sessions.
-*   A dotfile edit only affects *new* shells (or ones that explicitly `source` it) — the shell you edited from keeps its old, already-loaded `PATH` until you refresh it.
-*   `hash -r` clears bash's command-location cache — always run it before trusting a `type`/`which` result immediately after a `PATH` change.
-
-## Self-Check
-
-1. A colleague adds `~/tools` to the front of their `PATH` and later finds that their `grep` command behaves strangely after a teammate committed a script named `grep` into that shared directory. What happened, and how would you fix the ordering?
-2. Why does testing a fresh `PATH` change in the very shell you edited the dotfile from risk giving you a misleading result, even if the dotfile itself is correct?
-3. After creating a decoy script earlier in `PATH` than the real command, `type` still reports the old, real binary. What single command should you run before trusting that result?
+The shell searches `PATH` left to right and runs the first match, so appending a personal directory is safe and prepending a writable one is a shadowing risk. Persist the append in the login-shell dotfile the account actually reads, verify from a fresh session, and clear bash's cache with `hash -r` before trusting a post-change lookup.

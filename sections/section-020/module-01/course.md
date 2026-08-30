@@ -1,154 +1,230 @@
-# Chapter 1: Access Control Lists — Permissions Beyond Three Buckets
+# Access Control Lists — Permissions Beyond Three Buckets
 
-Standard Unix permissions have carried the operating system for half a century, and for most files they are all you will ever need. But the model has a hard ceiling built into its design: exactly three buckets — owner, group, and everyone else — each with a single set of `rwx` bits. The moment a real project needs "this one outside contractor gets read-write, this one auditor gets read-only, but neither of them joins the team's actual group," the three-bucket model runs out of room.
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-020/module-01/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-020/module-01/playground
+> astrona destroy posix-acl-playground
+> ```
 
-In this chapter we solve that problem the way the exam expects: with POSIX Access Control Lists, a layer of extra permission entries that sits on top of the traditional owner/group/other bits without replacing or rewriting them.
+Standard Unix permissions have run the operating system for half a century, and for most files they are all you need. But the model has a ceiling built into its design: exactly three buckets — owner, group, and everyone else — each with one set of `rwx` bits. The moment a real project needs "this one outside contractor gets read-write, this one auditor gets read-only, and neither joins the team's group," three buckets run out of room. POSIX Access Control Lists (ACLs) are the extra layer that fixes this — named-user and named-group permission entries that sit *on top of* the traditional bits without replacing them.
 
-> *ACLs extend permissions, they don't replace them — the standard owner/group/other bits and the mask entry still cap what an ACL entry can actually grant.*
+> *ACLs extend permissions, they don't replace them — the owner/group/other bits and the mask entry still cap what an ACL entry actually grants.*
 
----
+## Learning objectives
 
-## The Problem With Three Buckets
+After this module you can:
 
-Picture a shared project directory, `/srv/projects/orion`, owned by `team-lead:orion-team` with permissions `750` — the owner can do anything, the group can read and enter, and everyone else is locked out entirely.
+- Explain why the owner/group/other model cannot express a per-user exception, and when an ACL beats creating a new group.
+- Read a file's full ACL state with `getfacl`, and spot an extended ACL from the `+` in `ls -l`.
+- Grant a named user scoped access with `setfacl -m`, using `-R` to cover content that already exists.
+- Configure default ACL entries with `setfacl -d` so files created later inherit the access.
+- Explain what the `mask` entry caps, and diagnose an entry whose effective permission is lower than it is written.
 
-Now a contractor shows up who needs read-write access to that directory tree, but who absolutely should not become a member of `orion-team` — doing so would hand her access to every *other* resource that group can touch, which is far more than the task intends. An auditor needs the mirror image: read-only access, also without joining the group.
+## Before you start
 
-The tempting shortcut — "just make a new group for this" — technically works, but it spirals. Every one-off exception becomes a permanent group that has to be tracked, audited, and eventually cleaned up. ACLs exist so you never have to make that trade.
+You should be comfortable with standard `rwx` permissions, the owner / group / other split, `chmod` and `chown`, and running a command as another user with `sudo -u`. No ACL experience needed.
 
----
+The playground VM already has:
 
-## Part I: Reading What's Already There
+- `/srv/projects/orion` — a shared tree owned by `team-lead:orion-team`, mode `750`, already holding `README.md` and `docs/spec.md`.
+- `contractor-jane` and `auditor-tom` — real accounts that are **not** in `orion-team` and must not be added to it.
 
-Before changing anything, inspect the baseline:
+Open a shell on it with:
 
-```bash
-ls -ld /srv/projects/orion
-getfacl /srv/projects/orion
+```sh
+astrona ssh astro-posix-acl-playground
 ```
 
-`ls -ld` shows you the owner, group, and mode digits you'd expect from any directory. Watch the very end of the permission string closely — on a plain directory with no ACL, there is nothing after the final `-` or `x`. Once an ACL is attached, a trailing `+` appears (`drwxr-x---+`), and that single character is your fastest sanity check under time pressure: no `+`, no extended ACL, full stop.
+Every command block below runs **inside that VM**.
 
-`getfacl` works even on a file that has no extended ACL at all — it simply echoes the standard bits back to you in ACL notation:
+## Where this fits
 
-```text
-# file: srv/projects/orion
-# owner: team-lead
-# group: orion-team
-user::rwx
-group::r-x
-other::---
-```
+ACLs are one of three ways to share a directory: group membership, the setgid bit on a directory (so new files inherit the group), and ACLs. Group membership and setgid change *who is in the group*; ACLs leave the group alone and attach exceptions beside it. The other half of this section — PAM resource limits — is unrelated in mechanism but shares a theme: a fix that "looks right" (a new group; a `.bashrc` `ulimit`) but drags a maintenance cost or a silent hole behind it.
 
-This is not an error. It is `getfacl` telling you, honestly, "here is everything this file's access currently boils down to," which happens to be nothing more than the traditional three buckets so far.
+## Reading what is already there
 
-Before relying on ACLs at all, confirm the filesystem underneath actually supports them:
+`getfacl` (read: *get file ACL*) prints a file's complete access picture. It works even on a file with no extended ACL — it just echoes the standard bits in ACL notation, with `user::`, `group::`, and `other::` lines matching the three traditional buckets. That is not an error; it is `getfacl` saying "everything this file's access boils down to is those three buckets, so far." The fast visual tell for *whether* a file has an extended ACL is the trailing `+` in `ls -l` output: a plain directory shows `drwxr-x---`, one with an ACL shows `drwxr-x---+`. No `+`, no extended ACL.
 
-```bash
-mount | grep " / "
-```
+> [!TIP]
+> **Try it — the baseline, before any ACL**
+>
+> ```sh
+> ls -ld /srv/projects/orion
+> getfacl /srv/projects/orion
+> ```
+>
+> Expect something like:
+>
+> ```text
+> drwxr-x--- 3 team-lead orion-team 4096 Aug 30 12:00 /srv/projects/orion
+> # file: srv/projects/orion
+> # owner: team-lead
+> # group: orion-team
+> user::rwx
+> group::r-x
+> other::---
+> ```
+>
+> No `+` on the mode string, no `mask::` line in `getfacl` — this tree has only the standard owner/group/other permissions right now.
 
-On ext4 and XFS with a reasonably modern kernel, ACL support is compiled in and effectively always on, whether or not `acl` explicitly appears in the mount options list. If it genuinely is disabled, the very first `setfacl` you run will fail outright with an "Operation not supported" error — which is itself the diagnostic, so don't panic if you see it; remount with `-o remount,acl` and move on.
+## Granting access without touching group membership
 
----
+The **named-user** ACL entry attaches a permission set to one specific user, independent of any group. Its syntax reads left to right: `u:name:perms` (long form `user:name:perms`) — entity type, entity name, permission triad.
 
-## Part II: Granting Access Without Touching Group Membership
-
-The named-user ACL entry is the tool for this exact job — it attaches a permission set to one specific user, independent of any group:
-
-```bash
+```sh
 sudo setfacl -R -m u:contractor-jane:rwx /srv/projects/orion
 sudo setfacl -R -m u:auditor-tom:rx /srv/projects/orion
 ```
 
-Two details matter enormously here, and both are easy to skip past under exam pressure.
+`setfacl` (read: *set file ACL*) with `-m` (**m**odify) adds or updates an entry. Two details carry the weight here:
 
-**The `-R` flag.** Without it, `setfacl -m` only touches the directory entry itself. Every file and subdirectory *already* inside the tree keeps its old permissions completely unchanged — the new ACL entry on the parent directory does nothing retroactively for existing content. `-R` walks the entire tree and stamps the same entry onto everything it finds. If contractor-jane needs access to files that already exist, `-R` is not optional.
+- **`-R` (recursive).** Without it, `setfacl -m` touches only the directory entry itself; every file and subdirectory already inside keeps its old permissions. The new entry on the parent does nothing retroactively. `-R` walks the whole tree and stamps the entry onto everything.
+- **`rwx`, not `rw-`, on a directory.** On a directory the execute bit means "you may traverse into this" — `cd` into it, or reach a file inside by path. Grant only `rw-` and the user cannot descend into any subdirectory. "Read-write access to a tree" always implies the execute bit at every directory level.
 
-**Why `rwx` and not `rw-` for a directory.** This trips up almost everyone the first time. On a directory, the execute bit doesn't mean "run this as a program" — it means "you may traverse into this directory," i.e., `cd` into it or open a file inside it by path. Grant `contractor-jane` only `rw-` on a directory and she can list its contents and even create files at the top level in some configurations, but she cannot descend into any subdirectory to reach a file by path. "Read-write access to a tree" always implies the execute bit at every directory level in that tree.
+> [!TIP]
+> **Try it — add two named users, watch the `+` appear**
+>
+> ```sh
+> sudo setfacl -R -m u:contractor-jane:rwx /srv/projects/orion
+> sudo setfacl -R -m u:auditor-tom:rx /srv/projects/orion
+> ls -ld /srv/projects/orion
+> getfacl /srv/projects/orion
+> ```
+>
+> Expect something like:
+>
+> ```text
+> drwxrwx---+ 3 team-lead orion-team 4096 Aug 30 12:00 /srv/projects/orion
+> # file: srv/projects/orion
+> # owner: team-lead
+> # group: orion-team
+> user::rwx
+> user:contractor-jane:rwx
+> user:auditor-tom:r-x
+> group::r-x
+> mask::rwx
+> other::---
+> ```
+>
+> The `+` is now on the mode string. Two `user:` lines name the grantees; `# owner:` and `# group:` are unchanged. A `mask::` line appeared on its own — the next-but-one section explains it.
 
-The entry syntax itself — `u:name:perms` (the long form is `user:name:perms`) — reads left to right exactly like it sounds: entity type, entity name, permission triad.
+## Making it stick — default ACLs
 
----
+The entries above cover files that exist *now*. A brand-new file created under `/srv/projects/orion` tomorrow starts with **no ACL** — entries are not inherited just because the parent has some. A **default ACL** is a template the kernel consults at file-creation time:
 
-## Part III: Making It Stick — Default ACLs
-
-Steps so far only solved half the problem. They granted access to files that exist *right now*. Tomorrow, when someone on the team creates a brand-new file under `/srv/projects/orion`, that file starts life with **no ACL at all** — access entries are not inherited automatically just because the parent directory happens to have some.
-
-This is what **default ACLs** are for:
-
-```bash
+```sh
 sudo setfacl -d -m u:contractor-jane:rwx /srv/projects/orion
 sudo setfacl -d -m u:auditor-tom:rx /srv/projects/orion
 ```
 
-The `-d` flag sets a *default* ACL entry rather than an access ACL entry. A default ACL is a template — the kernel consults it at file-creation time and copies it onto the new file (as that file's own access ACL) or new subdirectory (as both an access ACL *and* a fresh default ACL of its own, so the inheritance chain keeps propagating downward).
+`-d` (**d**efault) sets a default entry instead of an access entry. When a file is created, the kernel copies the default onto it as that file's own access ACL; when a subdirectory is created, it gets both an access ACL *and* its own copy of the default, so the chain keeps propagating down.
 
-Notice that this section's two `setfacl` calls and Part II's two `setfacl -R` calls are not interchangeable — they solve two different halves of the same requirement:
+The two kinds of `setfacl` call are not interchangeable:
 
 | What you ran | What it covers |
 | :--- | :--- |
-| `setfacl -R -m ...` (no `-d`) | Files/subdirectories that already exist |
-| `setfacl -d -m ...` (with `-d`) | Files/subdirectories created from now on |
+| `setfacl -R -m …` (no `-d`) | Files / subdirectories that already exist |
+| `setfacl -d -m …` (with `-d`) | Files / subdirectories created from now on |
 
-Set only the first and the fix silently expires the moment anyone adds a new file. Set only the second and every file already in the tree stays inaccessible. A task that says "new files should not need a manual `setfacl` run every time" is testing specifically for the second half.
+Set only the first and the fix expires the moment someone adds a file. Set only the second and everything already in the tree stays inaccessible.
 
----
+> [!TIP]
+> **Try it — a new file inherits the entries with no `setfacl` on it**
+>
+> ```sh
+> sudo setfacl -d -m u:contractor-jane:rwx /srv/projects/orion
+> sudo setfacl -d -m u:auditor-tom:rx /srv/projects/orion
+> sudo -u contractor-jane touch /srv/projects/orion/new-note.txt
+> getfacl /srv/projects/orion/new-note.txt
+> ```
+>
+> Expect something like:
+>
+> ```text
+> # file: srv/projects/orion/new-note.txt
+> # owner: contractor-jane
+> # group: orion-team
+> user::rw-
+> user:contractor-jane:rwx			#effective:rw-
+> user:auditor-tom:r-x
+> group::r-x
+> mask::rw-
+> other::---
+> ```
+>
+> `setfacl` was never run against `new-note.txt`, yet it already carries both named-user entries — the default ACL applied them at creation. (The `#effective:` note and `mask::rw-` are the mask at work, next.)
 
-## Part IV: The Mask — The Entry Almost Nobody Checks
+## Proving it stayed additive
 
-Run `getfacl` again after the steps above and you'll see one more line you haven't touched directly:
+The requirement was that the owner, the group, and the base mode do not change, and existing `orion-team` members notice no difference. `ls -ld` confirms it: owner still `team-lead`, group still `orion-team`, base digits still `rwxr-x---` — only the `+` is new. ACLs are strictly additive; they never rewrite the traditional fields.
 
-```text
-mask::rwx
+The behavioural proof is a live test — who can actually do what:
+
+> [!TIP]
+> **Try it — jane can write, tom cannot**
+>
+> ```sh
+> sudo -u contractor-jane touch /srv/projects/orion/jane-file.txt && echo "jane: wrote OK"
+> sudo -u auditor-tom cat /srv/projects/orion/jane-file.txt && echo "tom: read OK"
+> sudo -u auditor-tom touch /srv/projects/orion/tom-file.txt
+> ```
+>
+> Expect something like:
+>
+> ```text
+> jane: wrote OK
+> (file contents — empty here)
+> tom: read OK
+> touch: cannot touch '/srv/projects/orion/tom-file.txt': Permission denied
+> ```
+>
+> `contractor-jane` (`rwx`) creates a file; `auditor-tom` (`r-x`) reads it but is denied the write. Neither user is in `orion-team` — the access came entirely from the named-user ACL entries.
+
+## The mask — the entry almost nobody checks
+
+Every extended ACL has a `mask` entry. It **caps the effective permission** of every named-user entry, every named-group entry, and the owning-group entry — but not the file-owner entry or `other`, which stay governed by the standard bits. It is the one place to restrict every extended entry at once.
+
+`setfacl -m` recalculates the mask automatically to the union of all entries' permissions, which is why `mask::rwx` appeared earlier without you setting it. That auto-recalculation is also the trap: if the mask is ever set *explicitly* to something narrower, every named entry is silently capped to it, whatever the entry itself says. An entry reading `rwx` against an `r-x` mask behaves as `r-x`. Modern `getfacl` annotates a capped entry with `#effective:`.
+
+```sh
+sudo setfacl -m m::r-x /srv/projects/orion
 ```
 
-The **mask** entry caps the *effective* permission of every named user entry and named group entry (and the traditional owning-group entry) in the ACL — but conspicuously not the file-owner entry or the "other" entry, which remain governed purely by the standard bits. Its entire purpose is to give you one place to instantly restrict every extended ACL entry at once, without hand-editing each named entry individually — useful for a security sweep across a file with a dozen different grantees.
+> [!TIP]
+> **Try it — narrow the mask and watch entries get capped**
+>
+> ```sh
+> sudo setfacl -m m::r-x /srv/projects/orion
+> getfacl /srv/projects/orion
+> sudo setfacl -m u:contractor-jane:rwx /srv/projects/orion
+> getfacl /srv/projects/orion | grep -E 'mask|contractor-jane'
+> ```
+>
+> Expect something like:
+>
+> ```text
+> user:contractor-jane:rwx			#effective:r-x
+> user:auditor-tom:r-x
+> mask::r-x
+> ...
+> user:contractor-jane:rwx
+> mask::rwx
+> ```
+>
+> With `mask::r-x`, `contractor-jane`'s `rwx` entry is annotated `#effective:r-x` — she loses write even though the entry says `rwx`. Re-running any `setfacl -m u:…` recalculates the mask back to the union (`rwx`), which clears the cap. If an ACL ever grants less than it reads, check the mask first.
 
-`setfacl -m` automatically recalculates the mask to the union of all entries' permissions by default, which is why the mask already shows `rwx` here without you setting it explicitly. But this auto-recalculation is exactly what makes the mask dangerous to overlook: if you (or a script, or a previous administrator) ever set the mask explicitly to something narrower —
+> [!WARNING]
+> **Common pitfalls — ACLs**
+>
+> - `setfacl -m` without `-R` on a populated tree — existing files are untouched. Use `-R` for content that already exists.
+> - Only an access ACL, or only a default ACL — you fixed one half. Existing files need `-R -m`; future files need `-d -m`. Most real ACL mistakes are forgetting one.
+> - `rw-` on a directory entry — the user cannot traverse into it. Directories need `x` (`rwx` or `r-x`).
+> - An entry that "doesn't work" — a narrowed `mask` is capping it. `getfacl` shows `#effective:`; re-run `setfacl -m` on any entry to recalculate the mask.
+> - Reaching for a new group instead — every one-off exception becomes a permanent group to track and clean up. That is the cost ACLs exist to avoid.
 
-```bash
-sudo setfacl -m m::rwx /srv/projects/orion
-```
+## Section recap
 
-— then every named entry gets silently capped to whatever the mask allows, *regardless of what the entry itself says*. An entry that reads `rwx` against a `r-x` mask effectively behaves as `r-x`. If an ACL entry ever looks like it grants more than what's actually enforced, the mask is the very first thing to check — modern `getfacl` output even annotates a capped entry directly with an `#effective:` comment.
-
----
-
-## Part V: Proving It Didn't Change What It Shouldn't
-
-The task's constraints were explicit: neither the owner nor the group changes, and existing members of `orion-team` see no difference in their own access. Confirm this directly:
-
-```bash
-ls -ld /srv/projects/orion
-```
-
-Expected: owner and group still read `team-lead` and `orion-team`, the base mode digits (`rwxr-x---`) are exactly as they were — only the trailing `+` is new. This is the core guarantee of ACLs as a mechanism: they are strictly additive. They never rewrite the traditional owner, group, or base permission fields; they attach alongside them.
-
-The full proof of the fix is a live test, not just reading `getfacl` output:
-
-```bash
-sudo -u contractor-jane touch /srv/projects/orion/test-write.txt
-sudo -u auditor-tom cat /srv/projects/orion/test-write.txt
-sudo -u auditor-tom touch /srv/projects/orion/should-fail.txt
-getfacl /srv/projects/orion/test-write.txt
-```
-
-The last command is the one that actually proves default-ACL inheritance works: `test-write.txt` was created moments ago by contractor-jane, and it should already carry both named-user entries — `user:contractor-jane:rwx` and `user:auditor-tom:r-x` — even though `setfacl` was never run against that file directly. That's the default ACL from Part III doing its job silently, at the exact moment the file was created.
-
----
-
-## Chapter Summary
-
-- Standard `rwx` permissions give you exactly three buckets (owner/group/other); ACLs add named-user and named-group entries on top, without touching who owns the file or who's in which group.
-- `getfacl` reads the full ACL state; `setfacl -m` adds or updates an entry; `-R` applies a change recursively to an existing tree; `-d` sets a *default* entry that new files/subdirectories inherit automatically going forward.
-- Directories need the execute bit in an ACL entry to be traversable — `rwx`, not `rw-`, for "full access to a tree."
-- The mask entry caps the effective permission of every named entry; check it whenever an ACL doesn't seem to behave as granted.
-- A trailing `+` in `ls -l` output is the fast visual tell that a file carries an extended ACL — check it before reaching for `getfacl`.
-- Access ACLs (what exists now) and default ACLs (what will exist later) are two different fixes for two different halves of the same requirement — most real-world ACL mistakes are forgetting one of the two.
-
-## Self-Check
-
-1. Why does adding a contractor to the project's group solve the *access* problem but violate the actual requirement in most real tasks?
-2. You set `u:auditor-tom:rwx` on a directory, but `getfacl` shows `mask::r-x`. What does auditor-tom actually get?
-3. What's the practical difference between running `setfacl -m` with `-d` versus without it, and why do most real scenarios need both?
+You can now read an ACL with `getfacl`, spot one from the `+` in `ls -l`, grant a named user scoped access with `setfacl -R -m`, make new files inherit it with `setfacl -d -m`, and explain why a written permission can be capped lower by the `mask`. The owner, group, and base mode never change — ACLs only add.

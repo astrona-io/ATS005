@@ -1,141 +1,226 @@
-# Chapter 2: PAM Resource Limits — Making a Restriction Actually Stick
+# PAM Resource Limits — Making a Restriction Actually Stick
 
-A runaway process forking itself into oblivion is one of the oldest ways to take down a shared server, and the reflex fix everyone reaches for first — "just cap it with `ulimit`" — is right in spirit and wrong in execution the moment it's bolted onto a single user's `.bashrc`. In this chapter we build the restriction the way the exam (and production reality) actually expects: through `/etc/security/limits.conf`, enforced globally by a PAM module, regardless of how the session was ever started.
+<!-- astrona:playground -->
+> [!NOTE]
+> 🧪 **Hands-on playground for this module** — a clean, throwaway machine to explore on. No task, no grading. Folder: [`playground/`](https://github.com/astrona-io/ATS005/tree/main/sections/section-020/module-02/playground)
+>
+> ```sh
+> astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c sections/section-020/module-02/playground
+> astrona destroy pam-limits-playground
+> ```
 
-> *If a resource limit only works when a user logs in "the normal way," it isn't actually enforced — PAM is what makes a limit apply everywhere.*
+A process forking itself into oblivion is one of the oldest ways to bring down a shared server, and the reflex fix — "cap it with `ulimit`" — is right in spirit and wrong in execution the moment it is bolted onto one user's `.bashrc`. This module builds the restriction the way it actually holds: an entry in `/etc/security/limits.conf`, applied at login by a PAM module, no matter how the session started.
 
----
+> *If a resource limit only works when a user logs in "the normal way," it is not really enforced — `pam_limits.so` is what makes a limit apply everywhere.*
 
-## Part I: Why a `.bashrc` Fix Isn't a Fix
+## Learning objectives
 
-Imagine a coworker already tried to solve a runaway-process problem for a user named `jackie`, by adding a line to her `.bashrc`:
+After this module you can:
 
-```bash
-ulimit -Sp 150
+- Explain why a `.bashrc` `ulimit` line leaves cron jobs and non-interactive `ssh host cmd` runs unrestricted.
+- Distinguish a soft limit from a hard limit, and say which one a non-root user cannot raise.
+- Read a user's live effective limit with `ulimit` in their own session or `prlimit --pid` from anywhere.
+- Write a hard `nproc` limit as an `/etc/security/limits.d/` drop-in in the four-column syntax.
+- Check that `pam_limits.so` is in the PAM `session` stack for the login path, and explain why the config is inert without it.
+- Cap concurrent logins for a whole group with `@group hard maxlogins`.
+
+## Before you start
+
+You should know what a shell startup file is (`~/.bashrc` and friends), be able to run a command as another user with `sudo -u`, and edit a file as root. "PAM" here just means the stack of modules the system runs when a session opens — you will inspect one line of it, not rewrite it.
+
+The playground VM already has:
+
+- `jackie` — with `ulimit -Su 150` appended to `~/.bashrc` (the fragile "fix"), and a long-running process (`systemd-run` unit `jackie-sleeper`) so `prlimit` has a target.
+- Group `operators` with members `ops-anna`, `ops-ben`, `ops-carl`.
+- `pam_limits.so` already enabled in `/etc/pam.d/common-session`.
+
+Open a shell on it with:
+
+```sh
+astrona ssh astro-pam-limits-playground
 ```
 
-This looks reasonable. It even works — the next time jackie opens an interactive shell, her process count is capped at 150. The trouble is in the word *interactive*. `.bashrc` is sourced specifically for interactive, non-login shells — roughly, "you're already logged in somehow, and a new shell is being spawned interactively," like opening a second terminal tab inside an existing SSH session.
+Every command block below runs **inside that VM**. `ulimit` here is the shell builtin that reads and sets the calling process's resource limits; the flags that matter are `-u` (max user processes, the `nproc` limit), `-S` (operate on the *soft* value), and `-H` (the *hard* value).
 
-That description quietly excludes an enormous number of paths a user's processes can actually start from:
+## Where this fits
 
-- A cron job running as jackie
-- A non-interactive remote command: `ssh web-srv1 somecommand`
-- Many systemd-launched user sessions
-- `su -` in some configurations, depending on shell and distro defaults
+The aging fields from Section 010 Module 3 and the limits here are both enforced by PAM at the moment a session opens — same framework, different modules (`pam_unix`, `pam_limits`). That is also why both share a failure mode: an already-open shell never reflects the change, because the module only runs at session *start*. The ACL half of this section is a different mechanism but the same lesson — a fix that looks right (`ulimit` in `.bashrc`) can have a silent hole exactly where it matters.
 
-None of these source `.bashrc`. The restriction has a hole exactly where a scripted or automated process — the kind most likely to fork excessively in the first place — would go completely unrestricted. A limit with a hole in it isn't a soft version of the real thing; it's a different, weaker mechanism that happens to look similar in the one case anyone tested it.
+## Why a `.bashrc` fix is not a fix
 
-There's a second, subtler problem even within the cases `.bashrc` *does* cover: the coworker only set a **soft** limit. A soft limit is the currently enforced value, but any unprivileged user can raise their own soft limit back up, any time, as long as it stays under the hard ceiling. `ulimit -Sp 150` in `.bashrc` doesn't stop jackie's own shell from immediately running `ulimit -Sp 500` right after login. The real backstop — the value a non-root user cannot exceed under any circumstance — is the **hard** limit, and the coworker never touched it.
-
----
-
-## Part II: Finding the Number You Actually Need
-
-Before replacing anything, the task requires reusing jackie's *currently effective* soft limit as the new hard limit — not a guess, not the number in the `.bashrc` line taken at face value (it might be stale), the actual live value.
-
-```bash
-sudo -u jackie -i ulimit -Sp
-```
-
-`sudo -u jackie -i` opens an interactive login shell as jackie, which sources her startup files and reports her real, currently-active soft `nproc` limit as a plain integer.
-
-As a cross-check that doesn't depend on shell startup files at all, if jackie has any running process:
-
-```bash
-pid=$(pgrep -u jackie | head -1)
-sudo prlimit --pid "$pid" --nproc
-```
-
-`prlimit` reads a limit directly from the kernel for an arbitrary PID (with permission) — it doesn't care what shell, if any, launched that process, which makes it the more trustworthy source when you want to double-check a number before writing it into a config file that will govern the account going forward.
-
----
-
-## Part III: The Real Mechanism — `limits.conf` and `pam_limits.so`
-
-The proper fix lives in `/etc/security/limits.conf` (or, better, an isolated drop-in file under `/etc/security/limits.d/`), following a strict four-column syntax:
+Say a coworker capped `jackie`'s runaway forks by adding one line to `~/.bashrc`:
 
 ```text
-<domain> <type> <item> <value>
+ulimit -Su 150
 ```
 
-For jackie, using the number discovered in Part II:
+It works — the next *interactive* shell jackie opens has its process count capped at 150. The problem is the word *interactive*. `~/.bashrc` is sourced for interactive non-login shells — "you are already in somehow, and a new shell spawns," like a second terminal tab in an existing SSH session. That excludes:
 
-```bash
-sudo vi /etc/security/limits.d/jackie-nproc.conf
+- a cron job running as jackie,
+- a non-interactive remote command: `ssh web-srv1 somecommand`,
+- many systemd-launched user sessions,
+- `su -` in some configurations.
+
+None of those source `~/.bashrc`. The restriction has a hole exactly where a scripted or automated process — the kind most likely to fork out of control — would run.
+
+There is a second problem even where `.bashrc` *is* read: the coworker set only a **soft** limit. A soft limit is the currently enforced value, but any unprivileged user can raise their own soft limit at will, up to the hard ceiling. The **hard** limit is the real backstop — the value a non-root user cannot exceed under any circumstance — and it was never touched.
+
+> [!TIP]
+> **Try it — the hole, and the soft-limit weakness**
+>
+> ```sh
+> tail -n 3 /home/jackie/.bashrc
+> sudo -u jackie -i ulimit -Su
+> sudo -u jackie bash -c 'ulimit -Su'
+> sudo -u jackie -i ulimit -Hu
+> ```
+>
+> Expect something like:
+>
+> ```text
+> # added by a coworker to stop runaway forks (fragile: interactive shells only)
+> ulimit -Su 150
+> 150
+> 14611
+> unlimited
+> ```
+>
+> The login-shell path (`-i`) picks up the `.bashrc` line and reports `150`. The plain `bash -c` path — standing in for cron or `ssh host cmd` — never sources `.bashrc` and shows the untouched default (a large number, varies by RAM). And the *hard* limit is still `unlimited`: nothing stops jackie from running `ulimit -Su 500` herself.
+
+## Finding the number you actually need
+
+A real task usually wants jackie's *currently effective* soft limit reused as the new hard limit — the live value, not the possibly-stale number in the dotfile. Read it from her own session:
+
+```sh
+sudo -u jackie -i ulimit -Su
 ```
+
+`sudo -u jackie -i` opens a login shell as jackie, sources her startup files, and reports the active soft `nproc` limit as a plain integer.
+
+As a cross-check that does not depend on shell startup files at all, read it straight from the kernel for one of her processes with `prlimit` (read: *process limit* — it gets or sets the kernel resource limits of a running PID):
+
+```sh
+sudo prlimit --pid "$(systemctl show -p MainPID --value jackie-sleeper)" --nproc
+```
+
+`prlimit` does not care what shell, if any, launched the process — which makes it the more trustworthy source when you are about to write a number into a config file that will govern the account.
+
+> [!TIP]
+> **Try it — two independent readings of the same limit**
+>
+> ```sh
+> sudo -u jackie -i ulimit -Su
+> sudo prlimit --pid "$(systemctl show -p MainPID --value jackie-sleeper)" --nproc
+> ```
+>
+> Expect something like:
+>
+> ```text
+> 150
+> RESOURCE   DESCRIPTION                             SOFT      HARD UNITS
+> NPROC      max number of processes                  150 unlimited processes
+> ```
+>
+> The `jackie-sleeper` process was started by systemd, not by an interactive shell, yet `prlimit` still shows its `NPROC` soft value. Both readings agree on `150` — that is the number to carry into `limits.conf`.
+
+## The real mechanism — `limits.conf` and `pam_limits.so`
+
+The proper fix lives in `/etc/security/limits.conf`, or better an isolated drop-in under `/etc/security/limits.d/`, in a strict four-column syntax:
 
 ```text
-jackie hard nproc 150
+<domain>  <type>  <item>  <value>
 ```
 
-- **domain** — who this rule applies to. A bare username (`jackie`), a group with an `@` prefix (`@operators`), or a wildcard (`*`) for everyone.
-- **type** — `soft` or `hard`. `hard` is the actual ceiling; a plain user cannot raise it.
-- **item** — what's being limited. `nproc` (max processes), `maxlogins` (concurrent sessions), `fsize`, `nofile`, and others — each one a specific resource `pam_limits.so` knows how to enforce.
+For jackie, using the number from the previous section:
+
+```text
+jackie  hard  nproc  150
+```
+
+- **domain** — who the rule applies to. A bare username (`jackie`), a group with `@` (`@operators`), or `*` for everyone.
+- **type** — `soft` or `hard`. `hard` is the ceiling a plain user cannot raise.
+- **item** — the resource. `nproc` (max processes), `maxlogins` (concurrent sessions), `fsize`, `nofile`, and more — each one something `pam_limits.so` knows how to enforce.
 - **value** — the number.
 
-A drop-in under `/etc/security/limits.d/` rather than a hand-edit of the monolithic `limits.conf` keeps this change isolated: easy to find, easy to review, easy to remove later without hunting through a shared file for one line among dozens — the identical reasoning behind `/etc/sudoers.d/` drop-ins for sudo rules.
+A drop-in under `limits.d/` rather than a hand-edit of the monolithic file keeps the change easy to find, review, and remove later — the same reasoning as `/etc/sudoers.d/` drop-ins.
 
-None of this matters, however, unless one specific PAM module is actually wired into the login path being used:
+None of this does anything unless `pam_limits.so` is wired into the login path in use. Check it:
 
-```bash
+```sh
 grep -n pam_limits /etc/pam.d/common-session /etc/pam.d/login /etc/pam.d/sshd 2>/dev/null
 ```
 
-Expected, somewhere in the relevant chain:
+You want a line like `session required pam_limits.so` somewhere in the relevant chain. This is the most commonly missed step: `pam_limits.so` is the module that actually *reads* `limits.conf` / `limits.d` and applies it at session-open time. If it is missing or commented out for the service governing the login, every `limits.conf` line on the system is correct and enforced by nothing. `limits.conf` is data; `pam_limits.so` is the code that reads it.
 
-```text
-session required pam_limits.so
+> [!TIP]
+> **Try it — write the drop-in, confirm from a fresh session**
+>
+> ```sh
+> grep -n pam_limits /etc/pam.d/common-session
+> echo 'jackie  hard  nproc  150' | sudo tee /etc/security/limits.d/jackie-nproc.conf
+> sudo -u jackie -i ulimit -Hu
+> ```
+>
+> Expect something like:
+>
+> ```text
+> 25:session required                        pam_limits.so
+> jackie  hard  nproc  150
+> 150
+> ```
+>
+> `pam_limits.so` is present in `common-session`, so the drop-in is live. A **fresh** login shell (`sudo -u jackie -i`) now reports a hard `nproc` of `150` — jackie can no longer raise her soft limit past it. A shell she already had open would still show the old value; `pam_limits.so` only applies at session start.
+
+With the proper mechanism confirmed, the old hack should be removed so there are not two sources of truth:
+
+```sh
+sudo sed -i '/ulimit -Su/d' /home/jackie/.bashrc
 ```
 
-This is the detail almost everyone forgets to check, and it is the single most common reason a perfectly-written `limits.conf` entry appears to do absolutely nothing: `pam_limits.so` is the module that actually *reads* `limits.conf`/`limits.d` and applies it, at session-open time, for whatever PAM service stack it's listed in. If it's missing or commented out for the service governing jackie's login (interactive SSH, `su -`, whatever the task specifies), every line in every `limits.conf` drop-in on the system is configured correctly and enforced by nothing. `limits.conf` is data; `pam_limits.so` is the code that reads it — without the second, the first is inert.
+> [!WARNING]
+> **Common pitfalls — PAM limits**
+>
+> - `limits.conf` entry written, limit still not applied — check `pam_limits.so` is in the `session` stack of the *right* PAM service (`sshd`, `login`, `common-session`). Without it the file is inert.
+> - Testing from the shell you edited in — the limit only takes effect at session start. Always retest from a new login; keep your current root session open in case a PAM edit goes wrong.
+> - Setting only a `soft` limit — a user can raise their own soft limit up to the hard one. The enforceable backstop is `hard`.
+> - Trusting the `.bashrc` number — read the live value with `ulimit` or `prlimit` first; the dotfile line may be stale.
 
-Editing a PAM stack is one of the highest-risk categories of change on the exam. Keep your current root/sudo session open while testing any PAM or limits change, and confirm from a *second*, fresh session — `pam_limits.so` only applies its rules at session start, so an already-open shell (including the one you're editing from) will never reflect the new limit no matter how correct the config is.
+## Restricting a whole group — `maxlogins`
 
-Once the proper mechanism is confirmed live, the old `.bashrc` hack should be removed, not left in place:
+The group-scoped half of a task like this caps concurrent sessions. Check membership *first* — you do not want to find out afterward that someone in the group needs simultaneous logins:
 
-```bash
-sudo sed -i '/ulimit -Sp/d' /home/jackie/.bashrc
-```
-
-Leaving it wouldn't necessarily break anything outright, but it is redundant at best, and if it ever disagrees with the new `limits.conf` entry, it could re-narrow jackie's soft limit unexpectedly below what the proper configuration now intends — a confusing double-restriction with two different sources of truth.
-
----
-
-## Part IV: Restricting a Whole Group — `maxlogins`
-
-The second half of this kind of task is usually group-scoped rather than user-scoped. To cap every member of an `operators` group to a single concurrent login session:
-
-```bash
+```sh
 getent group operators
 ```
 
-Always check group membership before restricting logins — you don't want to discover, after the fact, that someone in that group legitimately needs simultaneous sessions.
-
-```bash
-sudo vi /etc/security/limits.d/operators-maxlogins.conf
-```
+Then a drop-in:
 
 ```text
-@operators hard maxlogins 1
+@operators  hard  maxlogins  1
 ```
 
-The `@` prefix is the group-domain syntax — this line applies individually to every current and future member of `operators`, not as one shared pool of logins split between them. `maxlogins` is a `pam_limits.so`-specific item (unlike `nproc`, it isn't a raw kernel `rlimit`) — it counts concurrent login *sessions* for members of the domain and refuses a new one past the configured ceiling. It relies on exactly the same `pam_limits.so` session line already confirmed in Part III; no separate PAM wiring is needed just because the item changed.
+The `@` prefix is the group-domain syntax — the line applies individually to every current and future member of `operators`, not as one shared pool of logins. `maxlogins` is a `pam_limits.so`-specific item (not a raw kernel `rlimit` like `nproc`): it counts concurrent login *sessions* for members of the domain and refuses a new one past the ceiling. It relies on the same `session` line already confirmed for `nproc` — no extra PAM wiring because the item changed.
 
-Some practice environments genuinely cannot exercise a live second-login test from within the grading session itself. When that's the case, the deliverable is the configuration verified by inspection — don't burn time trying to force a live test the environment was never built to support, and don't conclude the configuration is wrong just because an interactive re-test isn't possible from where you're sitting.
+> [!TIP]
+> **Try it — membership check, then the drop-in**
+>
+> ```sh
+> getent group operators
+> printf '@operators  hard  maxlogins  1\n' | sudo tee /etc/security/limits.d/operators-maxlogins.conf
+> sudo grep -rn . /etc/security/limits.d/
+> ```
+>
+> Expect something like:
+>
+> ```text
+> operators:x:1005:ops-anna,ops-ben,ops-carl
+> @operators  hard  maxlogins  1
+> /etc/security/limits.d/jackie-nproc.conf:1:jackie  hard  nproc  150
+> /etc/security/limits.d/operators-maxlogins.conf:1:@operators  hard  maxlogins  1
+> ```
+>
+> `getent` lists exactly who the cap will hit. A live "open a second login and watch it bounce" test needs two independent sessions and is not always possible from inside one SSH connection — the config, verified by inspection like the last `grep`, is what you are producing.
 
----
+## Section recap
 
-## Chapter Summary
-
-- A `.bashrc` `ulimit` line only ever fires for interactive, non-login shells — cron jobs, non-interactive SSH commands, and many systemd session types never source it, leaving exactly the automated paths most likely to misbehave completely unrestricted.
-- `limits.conf` syntax is always `<domain> <type> <item> <value>`; `@groupname` targets every member of a group instead of one user.
-- Before replacing a limit, discover the *current* effective value with `ulimit -Sp` (in the user's own session) or `prlimit --pid <pid>` (from anywhere) — don't guess or trust a stale dotfile line.
-- `pam_limits.so` must be present in the `session` stack of whatever PAM service governs the login path in question, or every `limits.conf`/`limits.d` entry on the system is inert — this is the most commonly missed step.
-- `maxlogins` is a `pam_limits.so` item like any other, enforced by the same session hook as `nproc` — no extra PAM wiring beyond confirming that hook exists.
-- A limit only applies at session *start* — an already-open session never picks up a change retroactively; always test from a fresh session.
-
-## Self-Check
-
-1. Why does a `ulimit -Sp` line in `.bashrc` fail to protect against a cron job or a non-interactive `ssh host command` run by the same user?
-2. You've written a perfectly correct `limits.conf` entry, but the user's hard limit still shows as unlimited after a fresh login. What's the first thing to check, and why?
-3. Why is `@operators hard maxlogins 1` a per-user rule for each group member rather than a single shared login slot for the whole group?
+You can now tell a soft limit from a hard one, read a live limit with `ulimit` or `prlimit`, write a hard `nproc` cap as a `limits.d` drop-in, confirm `pam_limits.so` is in the session stack that governs the login, and apply a per-member `maxlogins` cap to a group. The rule that ties it together: the limit applies at session start and only if `pam_limits.so` reads it.

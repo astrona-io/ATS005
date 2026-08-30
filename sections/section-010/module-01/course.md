@@ -250,6 +250,8 @@ sudo visudo -c
 
 `sudo` refuses to honour a sudoers file that is group- or world-writable, and `-c` (check) validates the main file plus every drop-in in one pass.
 
+Two `sudo` flags are used to inspect the result rather than to run anything: `sudo -l` (**l**ist) prints the rules that apply to you, and `sudo -l -U <user>` prints the rules for *another* user without becoming them — the direct way to confirm a grant is exactly as narrow as intended.
+
 > [!TIP]
 > **Try it — write the scoped rule and confirm it**
 >

@@ -50,7 +50,9 @@ This is the foundation the rest of Section 040 stands on: Module 2 writes users 
 
 If you have configured other Linux services, your instinct on meeting `slapd` (read: *Standalone LDAP Daemon*) is to find one config file, edit it, and restart. That fails here. Modern OpenLDAP does not keep its running configuration in a flat `slapd.conf`. It stores configuration as a live, LDAP-queryable tree rooted at `cn=config` — often called **OLC** (On-Line Configuration). Every setting — the base DN served, the admin identity, the TLS paths, the listening protocols — is an LDAP entry with attributes inside that tree.
 
-The payoff: configuration can change without a restart (`slapd` re-reads its own tree), is protected by the same access controls as directory data, and is inspected with the same tools (`ldapsearch`, `ldapmodify`). The cost: every change is an LDAP operation. You write a small **LDIF** (LDAP Data Interchange Format) file describing what should change and apply it with `ldapmodify` against `cn=config`, authenticating over a local-only channel: the `ldapi:///` UNIX socket combined with SASL's `EXTERNAL` mechanism. `-Y EXTERNAL -H ldapi:///` tells the client "authenticate as my OS identity (root, via the socket's peer credentials), not a bind DN and password" — `slapd` treats a local root process reaching it this way as administrative over `cn=config`.
+The payoff: configuration can change without a restart (`slapd` re-reads its own tree), is protected by the same access controls as directory data, and is inspected with the same tools you use for ordinary directory data. Those tools are a family, all named `ldap` + the operation they perform and all taking the same connection flags (`-H` host URI, `-x` simple bind, `-D` bind DN, `-W` prompt for the bind password, `-Y` SASL mechanism, `-Z`/`-ZZ` StartTLS): `ldapsearch` reads entries, `ldapmodify` changes them, `ldapadd` creates them (Module 2), `ldappasswd` sets a password, `ldapwhoami` reports who a bind authenticated as. Learn the flags once and every command in the family reads the same way. The cost of the config-as-tree model: every configuration change is itself an LDAP operation. You write a small **LDIF** (LDAP Data Interchange Format) file describing what should change and apply it with `ldapmodify` against `cn=config`, authenticating over a local-only channel: the `ldapi:///` UNIX socket combined with SASL's `EXTERNAL` mechanism. `-Y EXTERNAL -H ldapi:///` tells the client "authenticate as my OS identity (root, via the socket's peer credentials), not a bind DN and password" — `slapd` treats a local root process reaching it this way as administrative over `cn=config`.
+
+One more tool before the first checkpoint: `ss` (read: *socket statistics* — the modern replacement for `netstat`) lists network sockets. `ss -tlnp` reads as **t**CP sockets, **l**istening only, **n**umeric ports (no name lookup), with the owning **p**rocess — the quickest way to confirm which ports `slapd` has open.
 
 > [!TIP]
 > **Try it — the server is up, and its config is a tree**
@@ -240,7 +242,7 @@ Three listeners, three jobs: `ldap:///` is plain/StartTLS-capable 389, `ldaps://
 
 A config that "should" work is not one that does. Verify at two layers, because they fail independently.
 
-The **transport layer** — does a raw TLS handshake complete?
+The **transport layer** — does a raw TLS handshake complete? `openssl s_client` is OpenSSL's built-in TLS *client* for exactly this: it opens a raw encrypted connection to a host:port, prints the certificate the server presents and the handshake result, then waits for input — `</dev/null` feeds it nothing so it reports and exits. `-connect host:port` is the target; `-showcerts` dumps the full chain.
 
 ```sh
 openssl s_client -connect 127.0.0.1:636 -showcerts </dev/null

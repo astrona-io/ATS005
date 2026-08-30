@@ -28,6 +28,8 @@ After this module you can:
 
 You should have a populated, TLS-secured LDAP server to point at — Modules 1 and 2 build exactly that, and the playground provisions their end state for you. You should be comfortable with `systemctl` / `journalctl` and editing config files. One term: **NSS** (Name Service Switch) is the glue that turns a username into a UID, a group name into a GID, and so on — `/etc/nsswitch.conf` decides which sources it asks and in what order.
 
+Two commands do most of the verifying here. `getent` (read: *get entries*) asks NSS for a database record exactly the way the system does at runtime — `getent passwd lfcsuser` returns the same line a login would resolve — so it walks the `nsswitch.conf` chain including `sss` once that is wired. `sssctl` (read: *SSSD control*) is `sssd`'s own admin tool; `sssctl config-check` validates `sssd.conf`'s syntax *and* its file permissions without starting the daemon.
+
 The playground VM already has:
 
 - Modules 1-2's finished state: a TLS LDAP server on `127.0.0.1` serving `dc=example,dc=com`, with `ou=people`, `ou=groups`, a `developers` group (GID `5000`), and `uid=lfcsuser` (UID `10001`, home `/home/lfcsuser`, shell `/bin/bash`, password `LfcsLdap!2024`).

@@ -28,6 +28,8 @@ After this module you can:
 
 You should have Module 1's concepts: a **DN** is a unique path-like name for an entry, and StartTLS (`-ZZ`) upgrades a port-389 connection to encrypted. Unlike Module 1, nothing here touches `cn=config` — this is *directory data*, changed with an ordinary authenticated bind as the admin identity, not the `ldapi:///` socket.
 
+The commands are the `ldap*` family, each named `ldap` + its operation and all sharing the same connection flags: `-H` host URI, `-x` simple bind, `-D` bind DN, `-W` prompt for the bind password (`-w` takes it inline), `-b` search base, `-Z`/`-ZZ` StartTLS. This module uses `ldapadd` (create entries), `ldappasswd` (set a password), `ldapsearch` (read entries back), and `ldapwhoami` (report who a bind authenticated as).
+
 The playground VM already has Module 1's finished state, provisioned for you:
 
 - A TLS-secured OpenLDAP server serving **`dc=example,dc=com`**, listening on `389` (StartTLS) and `636` (LDAPS).

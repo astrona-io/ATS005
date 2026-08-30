@@ -103,7 +103,7 @@ As a cross-check that does not depend on shell startup files at all, read it str
 sudo prlimit --pid "$(systemctl show -p MainPID --value jackie-sleeper)" --nproc
 ```
 
-`prlimit` does not care what shell, if any, launched the process — which makes it the more trustworthy source when you are about to write a number into a config file that will govern the account.
+The inner command just fetches the process ID: `systemctl show -p MainPID --value <unit>` prints one property of a unit (`-p` names it, `--value` prints the bare value with no `MainPID=` prefix), here the PID of the seeded `jackie-sleeper` service. `prlimit` does not care what shell, if any, launched that process — which makes it the more trustworthy source when you are about to write a number into a config file that will govern the account.
 
 > [!TIP]
 > **Try it — two independent readings of the same limit**
@@ -187,7 +187,7 @@ sudo sed -i '/ulimit -Su/d' /home/jackie/.bashrc
 
 ## Restricting a whole group — `maxlogins`
 
-The group-scoped half of a task like this caps concurrent sessions. Check membership *first* — you do not want to find out afterward that someone in the group needs simultaneous logins:
+The group-scoped half of a task like this caps concurrent sessions. Check membership *first* with `getent` (read: *get entries* — it asks NSS for a database record the same way the system does, so it sees local *and* directory-provided members): you do not want to find out afterward that someone in the group needs simultaneous logins.
 
 ```sh
 getent group operators

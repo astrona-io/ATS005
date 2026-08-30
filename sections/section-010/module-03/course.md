@@ -101,6 +101,8 @@ sudo chage -d 0 contractor7
 
 Either form assumes the account *has* a password to expire. On a brand-new account with no password ever set, PAM's handling of a genuinely empty field can skip the forced-change prompt entirely, depending on configuration — which is why the predictable path is to set a real temporary password first, then expire it.
 
+To set that temporary password without an interactive prompt, use `chpasswd` (read: *change password*): it reads `user:password` pairs, one per line, from standard input and applies them in a batch. `echo 'contractor7:Temp-123' | sudo chpasswd` sets one. It is the scriptable counterpart to `passwd`, which only ever prompts for one account at a time.
+
 > [!TIP]
 > **Try it — temporary password, then force the change**
 >

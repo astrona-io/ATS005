@@ -1,0 +1,307 @@
+training:
+  id: ATS005
+  title: "LFCS: Users and Groups"
+  description: >
+    Training material covering the Linux Foundation Certified System
+    Administrator (LFCS) Users and Groups domain, with hands-on labs for
+    each competency.
+
+  certification:
+    name: Linux Foundation Certified System Administrator
+    code: LFCS
+    provider: Linux Foundation
+    domain: Users and Groups
+    weight: 10
+
+modules:
+  - id: module-010
+    title: "Section 010: Local Account & Group Lifecycle"
+    description: >
+      Move beyond basic useradd/usermod busywork: relocate an existing
+      account's primary group and home directory, provision new accounts
+      with the right supplementary groups and a least-privilege sudoers
+      rule, manage the group lifecycle directly, and handle the rest of
+      an account's life — defaults, password aging, locking, and clean
+      removal.
+
+    content:
+      - type: reading
+        title: Section Overview
+        path: sections/section-010/README.md
+
+      - type: reading
+        title: "Module 1: User & Group Account Management"
+        path: sections/section-010/module-01/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-011/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-011/docs/solution.md
+
+      - type: lab
+        title: "User & Group Provisioning and Scoped Sudo Lab"
+        path: labs/lab-011
+
+      - type: reading
+        title: "Module 2: Group Lifecycle Management"
+        path: sections/section-010/module-02/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-012/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-012/docs/solution.md
+
+      - type: lab
+        title: "Group Creation, Membership & the Active-Group Trap Lab"
+        path: labs/lab-012
+
+      - type: reading
+        title: "Module 3: Account Lifecycle: Defaults, Aging & Locking"
+        path: sections/section-010/module-03/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-013/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-013/docs/solution.md
+
+      - type: lab
+        title: "Account Defaults, Password Aging & Locking Lab"
+        path: labs/lab-013
+
+      - type: reading
+        title: "Section 010 Knowledge Check: Local Account & Group Lifecycle"
+        path: sections/section-010/quiz.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-010/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-010/docs/solution.md
+
+      - type: lab
+        title: "Local Account & Group Lifecycle Capstone Lab"
+        path: labs/lab-010
+
+  - id: module-020
+    title: "Section 020: Access Control & Resource Limits"
+    description: >
+      Extend permissions beyond the standard owner/group/other model with
+      POSIX ACLs for one-off grants that don't touch group membership,
+      and enforce resource limits the way the system actually respects
+      them — through PAM and limits.conf, not a fragile per-user shell
+      hack.
+
+    content:
+      - type: reading
+        title: Section Overview
+        path: sections/section-020/README.md
+
+      - type: reading
+        title: "Module 1: POSIX Access Control Lists"
+        path: sections/section-020/module-01/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-021/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-021/docs/solution.md
+
+      - type: lab
+        title: "ACL-Based Shared Directory Access Lab"
+        path: labs/lab-021
+
+      - type: reading
+        title: "Module 2: PAM Resource Limits & Concurrent Logins"
+        path: sections/section-020/module-02/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-022/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-022/docs/solution.md
+
+      - type: lab
+        title: "PAM Hard Limits & maxlogins Lab"
+        path: labs/lab-022
+
+      - type: reading
+        title: "Section 020 Knowledge Check: Access Control & Resource Limits"
+        path: sections/section-020/quiz.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-020/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-020/docs/solution.md
+
+      - type: lab
+        title: "Access Control & Resource Limits Capstone Lab"
+        path: labs/lab-020
+
+  - id: module-030
+    title: "Section 030: Shell Environment, Profiles & PATH"
+    description: >
+      Master exactly which of the many dotfiles and drop-ins actually
+      gets sourced for a given session type, set variables system-wide
+      and personally through the correct mechanism for each, and extend
+      a user's PATH persistently without opening a privilege-escalation
+      hole.
+
+    content:
+      - type: reading
+        title: Section Overview
+        path: sections/section-030/README.md
+
+      - type: reading
+        title: "Module 1: System-Wide & Personal Environment Profiles"
+        path: sections/section-030/module-01/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-031/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-031/docs/solution.md
+
+      - type: lab
+        title: "System-Wide and Personal Environment Variables Lab"
+        path: labs/lab-031
+
+      - type: reading
+        title: "Module 2: Extending PATH Safely"
+        path: sections/section-030/module-02/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-032/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-032/docs/solution.md
+
+      - type: lab
+        title: "Safe PATH Extension & Precedence Lab"
+        path: labs/lab-032
+
+      - type: reading
+        title: "Section 030 Knowledge Check: Shell Environment & PATH"
+        path: sections/section-030/quiz.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-030/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-030/docs/solution.md
+
+      - type: lab
+        title: "Shell Environment & PATH Capstone Lab"
+        path: labs/lab-030
+
+  - id: module-040
+    title: "Section 040: Centralized Identity with LDAP"
+    description: >
+      Build centralized identity from the ground up: install and secure
+      an OpenLDAP server with TLS, populate it with real organizational
+      and POSIX account data via LDIF, and wire a client into it with
+      sssd — verifying NSS resolution before ever testing a login.
+
+    content:
+      - type: reading
+        title: Section Overview
+        path: sections/section-040/README.md
+
+      - type: reading
+        title: "Module 1: LDAP Server Installation & TLS"
+        path: sections/section-040/module-01/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-041/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-041/docs/solution.md
+
+      - type: lab
+        title: "OpenLDAP Server Install & TLS Lab"
+        path: labs/lab-041
+
+      - type: reading
+        title: "Module 2: LDAP Directory Population & TLS Bind Verification"
+        path: sections/section-040/module-02/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-042/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-042/docs/solution.md
+
+      - type: lab
+        title: "LDAP Directory Population & Verified TLS Bind Lab"
+        path: labs/lab-042
+
+      - type: reading
+        title: "Module 3: LDAP Client Integration with SSSD"
+        path: sections/section-040/module-03/course.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-043/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-043/docs/solution.md
+
+      - type: lab
+        title: "SSSD LDAP Client Integration Lab"
+        path: labs/lab-043
+
+      - type: reading
+        title: "Section 040 Knowledge Check: Centralized Identity with LDAP"
+        path: sections/section-040/quiz.md
+
+      - type: reading
+        title: Question
+        path: labs/lab-040/docs/question.md
+
+      - type: reading
+        title: Solution Walkthrough
+        path: labs/lab-040/docs/solution.md
+
+      - type: lab
+        title: "Centralized Identity with LDAP Capstone Lab"
+        path: labs/lab-040
+
+  - id: module-050
+    title: "LFCS Users and Groups Domain Certification Quiz"
+    description: >
+      A comprehensive, scenario-based final assessment covering all 10
+      modules across the 4 sections of this domain, simulating actual
+      Linux Foundation exam pressure.
+
+    content:
+      - type: reading
+        title: "Final Domain Certification Quiz"
+        path: sections/final-domain-quiz.md

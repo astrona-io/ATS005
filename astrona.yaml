@@ -204,6 +204,12 @@ modules:
         title: "Access Control Lists: Permissions Beyond Three Buckets"
         path: sections/section-020/module-01/course.md
       - type: reading
+        title: "Reading And Granting ACL Entries"
+        path: sections/section-020/module-01/course-01-reading-and-granting-acl-entries.md
+      - type: reading
+        title: "Default ACLs For Files Created Later"
+        path: sections/section-020/module-01/course-02-default-acls.md
+      - type: reading
         title: "Question"
         path: labs/lab-021/docs/question.md
       - type: lab
@@ -226,8 +232,23 @@ modules:
           - name: "acl manual page (Ubuntu 24.04)"
             url: https://manpages.ubuntu.com/manpages/noble/man5/acl.5.html
       - type: reading
+        title: "The ACL Mask"
+        path: sections/section-020/module-01/course-03-the-acl-mask.md
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-020/module-01/course-04-wrap-up.md
+      - type: reading
         title: "PAM Resource Limits: Making a Restriction Actually Stick"
         path: sections/section-020/module-02/course.md
+      - type: reading
+        title: "Why A .bashrc Limit Is Not Enough"
+        path: sections/section-020/module-02/course-01-why-a-bashrc-limit-is-not-enough.md
+      - type: reading
+        title: "Hard Limits Through PAM"
+        path: sections/section-020/module-02/course-02-hard-limits-through-pam.md
+      - type: reading
+        title: "One Login Per Group Member"
+        path: sections/section-020/module-02/course-03-one-login-per-group-member.md
       - type: reading
         title: "Question"
         path: labs/lab-022/docs/question.md
@@ -248,6 +269,9 @@ modules:
             url: https://manpages.ubuntu.com/manpages/noble/man5/limits.conf.5.html
           - name: "pam_limits manual page (Ubuntu 24.04)"
             url: https://manpages.ubuntu.com/manpages/noble/man8/pam_limits.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-020/module-02/course-04-wrap-up.md
       - type: reading
         title: "Section 020 Knowledge Check: Access Control & Resource Limits"
         path: sections/section-020/quiz.md

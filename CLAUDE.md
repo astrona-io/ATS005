@@ -392,7 +392,7 @@ A lab folder holds:
 | --- | --- |
 | `config.yaml` | Lab definition; `metadata.docs` has `question: "docs/question.md"` and `solution: "docs/solution.md"` |
 | `README.md` | Short intro with the run command |
-| `docs/question.md` | The exam-style task. Starts with `# Question` and `Solve this question on: \`terminal\`` |
+| `docs/question.md` | The exam-style task. Starts with `# Question` and a `Solve this question on:` line that names the machine (`terminal` by default; some labs name the scenario host, for example `app-srv1` or `data-001`); keep that line as it is, the platform may use it to pick a machine |
 | `docs/solution.md` | Step-by-step walkthrough with real output |
 | `bootstrap/` | Starting state of the machine, never the graded result |
 | `validation/` | Grading scripts that check the machine's real state |

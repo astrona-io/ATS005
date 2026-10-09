@@ -49,6 +49,15 @@ modules:
         title: "User & Group Account Management"
         path: sections/section-010/module-01/course.md
       - type: reading
+        title: "Primary Groups And Moving A Home"
+        path: sections/section-010/module-01/course-01-primary-groups-and-moving-a-home.md
+      - type: reading
+        title: "Creating A New Account In One Command"
+        path: sections/section-010/module-01/course-02-creating-a-new-account.md
+      - type: reading
+        title: "A Scoped sudo Rule"
+        path: sections/section-010/module-01/course-03-a-scoped-sudo-rule.md
+      - type: reading
         title: "Question"
         path: labs/lab-011/docs/question.md
       - type: lab
@@ -71,8 +80,20 @@ modules:
           - name: "sudoers manual page (Ubuntu 24.04)"
             url: https://manpages.ubuntu.com/manpages/noble/man5/sudoers.5.html
       - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-01/course-04-wrap-up.md
+      - type: reading
         title: "Group Lifecycle Management"
         path: sections/section-010/module-02/course.md
+      - type: reading
+        title: "Creating Groups And Adding Members"
+        path: sections/section-010/module-02/course-01-creating-groups-and-adding-members.md
+      - type: reading
+        title: "When A Membership Change Takes Effect"
+        path: sections/section-010/module-02/course-02-when-membership-takes-effect.md
+      - type: reading
+        title: "Renaming And Deleting Groups"
+        path: sections/section-010/module-02/course-03-renaming-and-deleting-groups.md
       - type: reading
         title: "Question"
         path: labs/lab-012/docs/question.md
@@ -96,8 +117,23 @@ modules:
           - name: "groupdel manual page (Ubuntu 24.04)"
             url: https://manpages.ubuntu.com/manpages/noble/man8/groupdel.8.html
       - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-02/course-04-wrap-up.md
+      - type: reading
         title: "Account Lifecycle: Defaults, Aging & Locking"
         path: sections/section-010/module-03/course.md
+      - type: reading
+        title: "Real Defaults And A Forced Password Change"
+        path: sections/section-010/module-03/course-01-defaults-and-a-forced-password-change.md
+      - type: reading
+        title: "Password Aging And Account Expiration"
+        path: sections/section-010/module-03/course-02-password-aging-and-account-expiration.md
+      - type: reading
+        title: "Locking An Account And The SSH Key Gap"
+        path: sections/section-010/module-03/course-03-locking-and-the-ssh-key-gap.md
+      - type: reading
+        title: "Removing An Account Cleanly"
+        path: sections/section-010/module-03/course-04-removing-an-account.md
       - type: reading
         title: "Question"
         path: labs/lab-013/docs/question.md
@@ -120,6 +156,9 @@ modules:
             url: https://manpages.ubuntu.com/manpages/noble/man8/useradd.8.html
           - name: "userdel manual page (Ubuntu 24.04)"
             url: https://manpages.ubuntu.com/manpages/noble/man8/userdel.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-03/course-05-wrap-up.md
       - type: reading
         title: "Section 010 Knowledge Check: Local Account & Group Lifecycle"
         path: sections/section-010/quiz.md
@@ -162,7 +201,7 @@ modules:
         title: "Section Overview"
         path: sections/section-020/README.md
       - type: reading
-        title: "POSIX Access Control Lists"
+        title: "Access Control Lists: Permissions Beyond Three Buckets"
         path: sections/section-020/module-01/course.md
       - type: reading
         title: "Question"
@@ -187,7 +226,7 @@ modules:
           - name: "acl manual page (Ubuntu 24.04)"
             url: https://manpages.ubuntu.com/manpages/noble/man5/acl.5.html
       - type: reading
-        title: "PAM Resource Limits & Concurrent Logins"
+        title: "PAM Resource Limits: Making a Restriction Actually Stick"
         path: sections/section-020/module-02/course.md
       - type: reading
         title: "Question"

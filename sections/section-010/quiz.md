@@ -1,6 +1,6 @@
 # Section 010 Knowledge Check: Local Account & Group Lifecycle
 
-Test your understanding of primary vs. supplementary groups, scoped sudo rules, group lifecycle management, and password/account aging.
+Test your understanding of primary versus supplementary groups, scoped sudo rules, group lifecycle management, and password/account aging.
 
 ---
 
@@ -64,7 +64,7 @@ When `user2` actually runs `sudo bash /root/dangerous.sh`, they are still prompt
 
 **Correct Answer: A**
 
-*   **Why A is correct:** sudoers command matching is literal, including the invoked binary. The rule as written only matches a direct `sudo /root/dangerous.sh` invocation (relying on the script's shebang and execute bit). Since the user actually runs `sudo bash /root/dangerous.sh`, the authorized command must be the resolved `bash` binary's path plus that exact argument, e.g. `/usr/bin/bash /root/dangerous.sh`.
+*   **Why A is correct:** sudoers command matching is literal, including the invoked binary. The rule as written only matches a direct `sudo /root/dangerous.sh` invocation (relying on the script's shebang and execute bit). Since the user actually runs `sudo bash /root/dangerous.sh`, the authorized command must be the resolved `bash` binary's path plus that exact argument, for example `/usr/bin/bash /root/dangerous.sh`.
 *   **Why others are incorrect:**
     *   *Option B* is incorrect — `NOPASSWD` can be scoped to any user or group sudoers grants a rule to.
     *   *Option C* is incorrect — files under `/etc/sudoers.d/` are read regardless of extension (as long as they don't match the backup-file exclusion patterns like a trailing `~` or `.rpmnew`).
@@ -110,5 +110,5 @@ An account `contractor3` needs to be immediately barred from authenticating with
 *   **Why others are incorrect:**
     *   *Option A* is incorrect — deletion is permanent and destroys the account's configuration; it's not a reversible "lock."
     *   *Option C* is incorrect — password aging fields govern how long a password is valid; they do not clear or scramble the password hash itself.
-    *   *Option D* is incorrect — disabling the login shell blocks interactive shell sessions but is a different, complementary layer to password locking, not a substitute for it, and doesn't affect e.g. `su -c` or key-based non-shell operations the same way.
+    *   *Option D* is incorrect — disabling the login shell blocks interactive shell sessions but is a different, complementary layer to password locking, not a substitute for it, and doesn't affect, for example, `su -c` or key-based non-shell operations the same way.
 </details>

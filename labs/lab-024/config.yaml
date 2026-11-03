@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-024"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-024-setup"
+      description: "Builds /srv/data/ledger with ACL entries for auditor-ivy, temp-vendor and ledger-clerk, plus /root/strip-acls.sh"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-backup-file"
+      description: "Confirms /root/ledger-acl.backup holds the entries of the whole tree, including default and clerk entries"
+      type: "file"
+      source: "validation/validate-backup-file.sh"
+
+    - name: "verify-restored-tree"
+      description: "Confirms the ACLs were restored, temp-vendor is gone everywhere, and owners are unchanged"
+      type: "file"
+      source: "validation/validate-restored-tree.sh"
+
+teardown:
+  keepCluster: false

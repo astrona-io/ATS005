@@ -1,0 +1,283 @@
+# Knowledge check for section 010. Listed in astrona.yaml as a `type: quiz` entry.
+schema_version: 1
+kind: question_bank
+id: ats005-010
+course_id: ATS005
+exam_code: LFCS
+status: draft
+provenance: Original practice material written for this course; not official exam questions.
+scope:
+  type: section
+  id: section-010
+  title: "Local Account & Group Lifecycle"
+questions:
+
+  - id: ats005-010-q01
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Move an account to a new primary group and home directory, files included"
+    source_readings:
+      - sections/section-010/module-01/course-01-primary-groups-and-moving-a-home.md
+    prompt: |-
+      You run `sudo usermod -g dev -d /home/accounts/user1 user1` (no other flags) to move `user1` to a new home directory and primary group. Afterward, `getent passwd user1` shows the new home path, but `ls /home/accounts/user1` shows the directory is empty, while `user1`'s old files are still sitting at the original path. What went wrong?
+    options:
+      - id: a
+        text: "`usermod -g` does not support changing the home directory at the same time as the group."
+        explanation: "`usermod` happily accepts `-g` and `-d` (and `-m`) together in a single invocation."
+      - id: b
+        text: "The `-m` flag was omitted, so only the `/etc/passwd` pointer was updated — the file contents were never moved."
+        explanation: "Correct. `usermod -d` only rewrites the home-directory field in `/etc/passwd`. The `-m` (`--move-home`) flag is what actually copies the old home directory's contents into the new path, and it only takes effect when combined with `-d`. Without it, the account's passwd record points somewhere new while every file stays behind at the old location."
+      - id: c
+        text: "`user1` did not have permission to own files in the new directory."
+        explanation: "Ownership/permission errors would produce explicit error output, not a silently empty directory."
+      - id: d
+        text: "`usermod` requires the target directory to be empty before it will populate it."
+        explanation: "`usermod -m` creates and populates the target leaf directory itself; it does not require it to pre-exist."
+    correct_option: b
+    explanation: "`usermod -d` only rewrites the home-directory field in `/etc/passwd`. The `-m` (`--move-home`) flag is what actually copies the old home directory's contents into the new path, and it only takes effect when combined with `-d`. Without it, the account's passwd record points somewhere new while every file stays behind at the old location."
+
+  - id: ats005-010-q02
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Add one supplementary group to an existing account without dropping the others"
+    source_readings:
+      - sections/section-010/module-02/course-01-creating-groups-and-adding-members.md
+    prompt: |-
+      An existing user, `analyst4`, already belongs to groups `finance` and `reporting` in addition to their primary group. You need to add them to a new group, `audit-ro`, without affecting anything else. Which command is correct?
+    options:
+      - id: a
+        text: "`sudo usermod -G audit-ro analyst4`"
+        explanation: "Plain `-G` (no `-a`) **replaces** the entire supplementary group list with exactly what's given, silently dropping `finance` and `reporting`."
+      - id: b
+        text: "`sudo usermod -aG audit-ro analyst4`"
+        explanation: "Correct. `-aG` (append) adds the named group to the user's existing supplementary group list without disturbing any group already there. This is the only safe form for adding one group to an *existing* account."
+      - id: c
+        text: "`sudo groupadd -G audit-ro analyst4`"
+        explanation: "`groupadd` creates groups; it has no such flag and doesn't operate on user accounts."
+      - id: d
+        text: "`sudo useradd -G audit-ro analyst4`"
+        explanation: "`useradd` only creates brand-new accounts; running it against an existing username fails outright."
+    correct_option: b
+    explanation: "`-aG` (append) adds the named group to the user's existing supplementary group list without disturbing any group already there. This is the only safe form for adding one group to an *existing* account."
+
+  - id: ats005-010-q03
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Grant one exact command through sudo with no password and nothing more"
+    source_readings:
+      - sections/section-010/module-01/course-03-a-scoped-sudo-rule.md
+    prompt: |-
+      You need `user2` to run `sudo bash /root/dangerous.sh` with no password prompt, and nothing else. You add this line via `visudo -f /etc/sudoers.d/user2-script`:
+      ```
+      user2 ALL=(root) NOPASSWD: /root/dangerous.sh
+      ```
+      When `user2` actually runs `sudo bash /root/dangerous.sh`, they are still prompted for a password. Why?
+    options:
+      - id: a
+        text: "The sudoers rule authorizes running `/root/dangerous.sh` directly as its own command, but the user is invoking `bash` with the script as an argument — a different command entirely from sudoers' point of view."
+        explanation: "Correct. sudoers command matching is literal, including the invoked binary. The rule as written only matches a direct `sudo /root/dangerous.sh` invocation (relying on the script's shebang and execute bit). Since the user actually runs `sudo bash /root/dangerous.sh`, the authorized command must be the resolved `bash` binary's path plus that exact argument, for example `/usr/bin/bash /root/dangerous.sh`."
+      - id: b
+        text: "`NOPASSWD` rules only ever apply to the `root` user itself."
+        explanation: "`NOPASSWD` can be scoped to any user or group sudoers grants a rule to."
+      - id: c
+        text: "The drop-in file needs a `.sudoers` file extension to be read."
+        explanation: "Files under `/etc/sudoers.d/` are read regardless of extension (as long as they don't match the backup-file exclusion patterns like a trailing `~` or `.rpmnew`)."
+      - id: d
+        text: "`visudo -f` does not actually save changes to disk."
+        explanation: "`visudo -f <path>` does save the file; it only refuses to save if the syntax is invalid."
+    correct_option: a
+    explanation: "sudoers command matching is literal, including the invoked binary. The rule as written only matches a direct `sudo /root/dangerous.sh` invocation (relying on the script's shebang and execute bit). Since the user actually runs `sudo bash /root/dangerous.sh`, the authorized command must be the resolved `bash` binary's path plus that exact argument, for example `/usr/bin/bash /root/dangerous.sh`."
+
+  - id: ats005-010-q04
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Create a group with a fixed GID"
+    source_readings:
+      - sections/section-010/module-02/course-01-creating-groups-and-adding-members.md
+    prompt: |-
+      You need to create a group named `datateam` with GID exactly `5000`, because other systems already expect that number. Which command guarantees this?
+    options:
+      - id: a
+        text: "`sudo groupadd datateam` followed by manually editing `/etc/group` to change the GID afterward."
+        explanation: "This option would work but is needlessly risky and manual compared to the built-in flag designed for exactly this."
+      - id: b
+        text: "`sudo groupadd -g 5000 datateam`"
+        explanation: "Correct. `groupadd -g <GID>` pins the exact GID at creation time. Without `-g`, `groupadd` assigns the next available GID from the range in `/etc/login.defs`, which is not guaranteed to be `5000`."
+      - id: c
+        text: "`sudo groupadd -r datateam`"
+        explanation: "`-r` requests a *system* group from the low GID range; it does not pin an arbitrary exact GID like `5000`."
+      - id: d
+        text: "`sudo useradd -g 5000 datateam`"
+        explanation: "`useradd` creates user accounts, not groups, and has no such usage."
+    correct_option: b
+    explanation: "`groupadd -g <GID>` pins the exact GID at creation time. Without `-g`, `groupadd` assigns the next available GID from the range in `/etc/login.defs`, which is not guaranteed to be `5000`."
+
+  - id: ats005-010-q05
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Bar an account from password login without deleting it"
+    source_readings:
+      - sections/section-010/module-03/course-03-locking-and-the-ssh-key-gap.md
+    prompt: |-
+      An account `contractor3` needs to be immediately barred from authenticating with a password, without deleting the account or losing its existing password so it can be restored later. Which command is correct, and what does it actually do at the data level?
+    options:
+      - id: a
+        text: "`sudo userdel contractor3` — removes the account entirely; it can be recreated later with the same username."
+        explanation: "Deletion is permanent and destroys the account's configuration; it's not a reversible \"lock.\""
+      - id: b
+        text: "`sudo passwd -l contractor3` — prefixes the encrypted password field in `/etc/shadow` so it can never match input, without erasing the original hash."
+        explanation: "Correct. `passwd -l` (equivalently `usermod -L`) prepends a marker to the encrypted password field in `/etc/shadow`. The stored hash is preserved but can never successfully match any password entered — unlocking with `passwd -u` restores the exact original password, not a blank one."
+      - id: c
+        text: "`sudo chage -M 0 contractor3` — sets the maximum password age to zero, deleting the password."
+        explanation: "Password aging fields govern how long a password is valid; they do not clear or scramble the password hash itself."
+      - id: d
+        text: "`sudo usermod -s /usr/sbin/nologin contractor3` — the only correct way to lock any account."
+        explanation: "Disabling the login shell blocks interactive shell sessions but is a different, complementary layer to password locking, not a substitute for it, and doesn't affect, for example, `su -c` or key-based non-shell operations the same way."
+    correct_option: b
+    explanation: "`passwd -l` (equivalently `usermod -L`) prepends a marker to the encrypted password field in `/etc/shadow`. The stored hash is preserved but can never successfully match any password entered — unlocking with `passwd -u` restores the exact original password, not a blank one."
+
+  - id: ats005-010-q06
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Explain which files in /etc/sudoers.d are read and which are skipped"
+    source_readings:
+      - sections/section-010/module-04/course-01-drop-in-files-and-visudo.md
+    prompt: |-
+      You save a new rule as `/etc/sudoers.d/webops.bak`. The rule is correct, but `sudo -l -U anna` does not show it. What is the cause?
+    options:
+      - id: a
+        text: "`sudo` reads drop-in files only when they end in `.conf`."
+        explanation: "No. Drop-in files need no special ending."
+      - id: b
+        text: "`sudo` skips file names that contain a dot or end in `~`, so this file is never read."
+        explanation: "Correct. `@includedir` ignores names with a dot or a trailing `~`, which keeps backup files out of the rules."
+      - id: c
+        text: "The rule needs a `visudo -c` run before it is active."
+        explanation: "No. `visudo -c` only checks syntax. It does not load anything."
+      - id: d
+        text: "Drop-in files are read only after a reboot."
+        explanation: "No. `sudo` reads the folder on every call."
+    correct_option: b
+    explanation: "`@includedir` ignores names with a dot or a trailing `~`, which keeps backup files out of the rules."
+
+  - id: ats005-010-q07
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Explain why visudo is used to edit sudoers files"
+    source_readings:
+      - sections/section-010/module-04/course-01-drop-in-files-and-visudo.md
+    prompt: |-
+      A teammate edits `/etc/sudoers.d/ops` with a plain text editor and leaves a typo in it. What can happen, and what avoids it?
+    options:
+      - id: a
+        text: "Nothing. `sudo` ignores lines it cannot read, so the typo is harmless."
+        explanation: "No. A syntax error in a sudoers file makes `sudo` refuse to work."
+      - id: b
+        text: "`sudo` can stop working for everyone, and `visudo -f /etc/sudoers.d/ops` avoids it because it checks the syntax before it saves."
+        explanation: "Correct. `visudo` checks the file and offers to fix it, so a broken rule never goes live."
+      - id: c
+        text: "Only the rule with the typo is dropped, and `visudo` is only a nicer editor."
+        explanation: "No. A syntax error can break the whole policy, and the syntax check is the point of `visudo`."
+      - id: d
+        text: "The typo is fixed automatically the next time `sudo` runs."
+        explanation: "No. `sudo` never repairs sudoers files."
+    correct_option: b
+    explanation: "`visudo` checks the file and offers to fix it, so a broken rule never goes live."
+
+  - id: ats005-010-q08
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Write a command alias and a group rule that needs no password"
+    source_readings:
+      - sections/section-010/module-04/course-02-aliases-and-group-rules.md
+    prompt: |-
+      Members of the group `webops` must restart `ssh` as `root` without a password, and run nothing else. Which pair of lines does this?
+
+      (Assume `Cmnd_Alias SERVICE_CMDS = /usr/bin/systemctl restart ssh` is defined first.)
+    options:
+      - id: a
+        text: "`webops ALL=(root) NOPASSWD: SERVICE_CMDS`"
+        explanation: "No. Without `%`, `webops` is read as a user name, not a group."
+      - id: b
+        text: "`%webops ALL=(root) NOPASSWD: ALL`"
+        explanation: "No. This gives every command, not only the restart."
+      - id: c
+        text: "`%webops ALL=(root) NOPASSWD: SERVICE_CMDS`"
+        explanation: "Correct. A leading `%` names a group, `(root)` is the user to run as, and the alias limits the commands."
+      - id: d
+        text: "`%webops ALL=(ALL) PASSWD: SERVICE_CMDS`"
+        explanation: "No. `PASSWD:` asks for a password, which is the opposite of the task."
+    correct_option: c
+    explanation: "A leading `%` names a group, `(root)` is the user to run as, and the alias limits the commands."
+
+  - id: ats005-010-q09
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Predict which sudoers rule wins when several match"
+    source_readings:
+      - sections/section-010/module-04/course-02-aliases-and-group-rules.md
+    prompt: |-
+      `anna` is in the group `webops`. A file has the line `%webops ALL=(root) NOPASSWD: SERVICE_CMDS`. A later line in the same policy reads `anna ALL=(root) /usr/bin/systemctl restart ssh`. Both match the same command. What does `anna` see when she runs it?
+    options:
+      - id: a
+        text: "No password prompt, because the first matching rule wins."
+        explanation: "No. `sudo` does not stop at the first match."
+      - id: b
+        text: "A password prompt, because the last matching rule wins and it has no `NOPASSWD:`."
+        explanation: "Correct. When several rules match, the last one decides, so order matters."
+      - id: c
+        text: "An error, because two rules for one command are not allowed."
+        explanation: "No. Several rules may match. The last one is used."
+      - id: d
+        text: "No password prompt, because a group rule always beats a user rule."
+        explanation: "No. Position decides, not whether it names a user or a group."
+    correct_option: b
+    explanation: "When several rules match, the last one decides, so order matters."
+
+  - id: ats005-010-q10
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Read the sudo rules of another user"
+    source_readings:
+      - sections/section-010/module-04/course-02-aliases-and-group-rules.md
+    prompt: |-
+      As an administrator you want to see which commands `ben` may run with `sudo`, without logging in as `ben`. Which command does this?
+    options:
+      - id: a
+        text: "`sudo -l -U ben`"
+        explanation: "Correct. `-l` lists the rules, and `-U` names the user to list for."
+      - id: b
+        text: "`sudo -U ben -c ls`"
+        explanation: "No. This is not a way to list rules."
+      - id: c
+        text: "`visudo -l ben`"
+        explanation: "No. `visudo` edits and checks files. It does not list rules for a user."
+      - id: d
+        text: "`getent sudoers ben`"
+        explanation: "No. `getent` reads name databases, and it does not evaluate the rules for a user."
+    correct_option: a
+    explanation: "`-l` lists the rules, and `-U` names the user to list for."
+
+  - id: ats005-010-q11
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "State the owner and mode a sudoers drop-in must have"
+    source_readings:
+      - sections/section-010/module-04/course-01-drop-in-files-and-visudo.md
+    prompt: |-
+      Which owner and mode does a file in `/etc/sudoers.d` need, and which tool creates a new file with them?
+    options:
+      - id: a
+        text: "`root:root` with mode `0440`, and `visudo -f` creates it that way."
+        explanation: "Correct. The file is read-only for `root` and its group, and `visudo -f` sets this for you."
+      - id: b
+        text: "`root:root` with mode `0666`, so every user can read the rules."
+        explanation: "No. A world-writable sudoers file is rejected."
+      - id: c
+        text: "`root:root` with mode `0777`, so `sudo` can always read it."
+        explanation: "No. `sudo` refuses files that others can write."
+      - id: d
+        text: "The mode of the user it names, for example `0664`."
+        explanation: "No. A group-writable file is not accepted either, and the owner must be `root`."
+    correct_option: a
+    explanation: "The file is read-only for `root` and its group, and `visudo -f` sets this for you."

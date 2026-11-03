@@ -2,6 +2,8 @@
 
 Solve this question on: `terminal`
 
+Astronaut, one crew member on this ship started far too many helpers at once, and a coworker's quick fix lives in a single startup file. Replace it with a limit the airlock checklist really enforces, and cap a team's logins while you are at it.
+
 User `jackie` caused an issue by running a program that forked far too many subprocesses. A coworker already tried to limit this by adding a `ulimit -Sp <n>` line to jackie's `.bashrc`, which only sets a **soft** limit and only applies to interactive shells. Jackie's password is `brown` if needed.
 
 1. Find the soft `nproc` limit currently in effect for jackie.
@@ -9,4 +11,6 @@ User `jackie` caused an issue by running a program that forked far too many subp
 3. Remove the old `.bashrc` hack now that the proper fix is in place.
 4. Separately, enforce that members of group `operators` can only ever have one login session at a time, using `maxlogins`.
 
-Note: an interactive live-login test of the `maxlogins` restriction may not be possible from this session — the configuration itself, verified by inspection, is the deliverable.
+Note: an interactive live-login test of the `maxlogins` restriction may not be possible from this session. The configuration itself, checked by inspection, is the deliverable.
+
+The grader checks that `/etc/security/limits.conf` or a file in `/etc/security/limits.d/` has a `jackie hard nproc <n>` line with the number the coworker planted, that the `ulimit -Sp` line is gone from `/home/jackie/.bashrc`, and that a `@operators hard maxlogins 1` line exists.

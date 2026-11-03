@@ -1,0 +1,277 @@
+# Knowledge check for section 040. Listed in astrona.yaml as a `type: quiz` entry.
+schema_version: 1
+kind: question_bank
+id: ats005-040
+course_id: ATS005
+exam_code: LFCS
+status: draft
+provenance: Original practice material written for this course; not official exam questions.
+scope:
+  type: section
+  id: section-040
+  title: "Centralized Identity with LDAP"
+questions:
+
+  - id: ats005-040-q01
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Explain that slapd is configured through cn=config"
+    source_readings:
+      - sections/section-040/module-01/course-01-the-configuration-is-a-tree.md
+    prompt: |-
+      You have just installed `slapd` on a fresh Ubuntu host and need to change the base DN it serves. You open a shell and look for `/etc/ldap/slapd.conf` to edit it directly, but the file either does not exist or has no effect when you change it. What is the correct way to change the base DN on a modern OpenLDAP install?
+    options:
+      - id: a
+        text: "Edit `/etc/ldap/ldap.conf` instead, which is the modern replacement for `slapd.conf`."
+        explanation: "This option is incorrect because `/etc/ldap/ldap.conf` configures client-side defaults (like `TLS_CACERT`), not the server's own base DN."
+      - id: b
+        text: "Apply an LDIF `changetype: modify` operation against the appropriate `olcDatabase={N}mdb,cn=config` entry using `ldapmodify -Y EXTERNAL -H ldapi:///`."
+        explanation: "Correct. Modern OpenLDAP stores its running configuration as a live, LDAP-queryable tree under `cn=config` (OLC), not a flat text file. Configuration changes are themselves LDAP modify operations, applied as LDIF against the relevant `cn=config` entry — here, the database entry backing directory data — authenticated locally via SASL `EXTERNAL` over the `ldapi:///` socket, which `slapd` trusts as equivalent to root access without a bind password."
+      - id: c
+        text: "Run `sudo systemctl edit slapd` and set the base DN as an environment variable."
+        explanation: "This option is incorrect because `slapd` has no concept of reading its base DN from a systemd environment override; base DN is an `olcSuffix` attribute inside `cn=config`."
+      - id: d
+        text: "Reinstall the `slapd` package and answer the `debconf` prompts differently."
+        explanation: "This option is incorrect because while `dpkg-reconfigure slapd` can re-run the Debian setup wizard, it is not the general mechanism for changing `cn=config`, and reinstalling the package is unnecessary and disruptive compared to a targeted `ldapmodify`."
+    correct_option: b
+    explanation: "Modern OpenLDAP stores its running configuration as a live, LDAP-queryable tree under `cn=config` (OLC), not a flat text file. Configuration changes are themselves LDAP modify operations, applied as LDIF against the relevant `cn=config` entry — here, the database entry backing directory data — authenticated locally via SASL `EXTERNAL` over the `ldapi:///` socket, which `slapd` trusts as equivalent to root access without a bind password."
+
+  - id: ats005-040-q02
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Wire a certificate and key into slapd and read the log when it fails to start"
+    source_readings:
+      - sections/section-040/module-01/course-03-giving-the-server-its-certificate.md
+    prompt: |-
+      You configure `olcTLSCertificateFile` and `olcTLSCertificateKeyFile` against `cn=config` and restart `slapd`, but the service fails to come back up. `sudo journalctl -u slapd` shows a TLS initialization error referencing the key file. `ls -l` shows the key is owned `root:root` with mode `600`. What is the most likely cause?
+    options:
+      - id: a
+        text: "The certificate has expired and must be reissued."
+        explanation: "This option is incorrect because an expired certificate produces a certificate validity error, not a key-file-specific initialization failure, and nothing in the scenario suggests an expiry issue."
+      - id: b
+        text: "The key file's ownership/permissions prevent `slapd`'s own service account (commonly `openldap`) from reading it, even though `root` can read it fine."
+        explanation: "Correct. `slapd` runs as a dedicated, unprivileged service account (`openldap` on Debian/Ubuntu, often `ldap` on RHEL-family systems), not as `root`. A key file readable only by `root:root` at mode `600` is invisible to that service account, so TLS initialization fails at startup — a permission problem that is easy to misdiagnose as a bad certificate."
+      - id: c
+        text: "`olcTLSCertificateKeyFile` is the wrong attribute name; it should be `olcTLSPrivateKeyFile`."
+        explanation: "This option is incorrect because `olcTLSCertificateKeyFile` is the correct, real attribute name for the private key path."
+      - id: d
+        text: "`slapd` must be restarted twice for TLS changes to take effect."
+        explanation: "A single restart is sufficient once the underlying file permissions are fixed — the issue described is not a timing problem."
+    correct_option: b
+    explanation: "`slapd` runs as a dedicated, unprivileged service account (`openldap` on Debian/Ubuntu, often `ldap` on RHEL-family systems), not as `root`. A key file readable only by `root:root` at mode `600` is invisible to that service account, so TLS initialization fails at startup — a permission problem that is easy to misdiagnose as a bad certificate."
+
+  - id: ats005-040-q03
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Add entries in the right order, parents before children"
+    source_readings:
+      - sections/section-040/module-02/course-01-ldif-and-the-first-drawers.md
+    prompt: |-
+      You need to add a new user entry `uid=jdoe,ou=people,dc=example,dc=com` with `ldapadd`, but the operation fails with "No such object." The LDIF file itself has correct syntax with no missing blank lines. What is the most likely cause?
+    options:
+      - id: a
+        text: "`ldapadd` cannot create `posixAccount` entries; only `ldapmodify` can."
+        explanation: "This option is incorrect because `ldapadd` (functionally `ldapmodify -a`) can add any valid entry type, including `posixAccount`-classed ones."
+      - id: b
+        text: "The parent entry `ou=people,dc=example,dc=com` does not exist yet, and LDAP requires parent entries to exist before children can be added beneath them."
+        explanation: "Correct. Unlike a filesystem's `mkdir -p`, LDAP does not implicitly create intermediate parent entries. If `ou=people,dc=example,dc=com` was never created (via its own `organizationalUnit` LDIF entry) before attempting to add a child entry under it, the server correctly rejects the operation with \"No such object\" — the parent container the new DN depends on simply is not there."
+      - id: c
+        text: "The bind DN used does not have a `userPassword` attribute set."
+        explanation: "This option is incorrect because a missing `userPassword` on the bind DN would produce an authentication failure, not \"No such object,\" and is unrelated to whether the new entry's parent exists."
+      - id: d
+        text: "The `uidNumber` attribute value is a duplicate of another entry's `uidNumber`."
+        explanation: "This option is incorrect because a duplicate `uidNumber` is a data-consistency concern an administrator should catch, not something the LDAP server itself rejects as a constraint violation by default, and it would not produce a \"No such object\" error in any case."
+    correct_option: b
+    explanation: "Unlike a filesystem's `mkdir -p`, LDAP does not implicitly create intermediate parent entries. If `ou=people,dc=example,dc=com` was never created (via its own `organizationalUnit` LDIF entry) before attempting to add a child entry under it, the server correctly rejects the operation with \"No such object\" — the parent container the new DN depends on simply is not there."
+
+  - id: ats005-040-q04
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Tell StartTLS that may fall back from StartTLS that is required"
+    source_readings:
+      - sections/section-040/module-01/course-04-opening-port-636-and-proving-tls.md
+    prompt: |-
+      You run `ldapsearch -x -Z -H ldap://127.0.0.1 -b "dc=example,dc=com" "(uid=lfcsuser)"` and it returns results successfully. You conclude that TLS is definitely working. Why might this conclusion be wrong, and what should you have run instead?
+    options:
+      - id: a
+        text: "`-Z` requires StartTLS to succeed and abort otherwise, so the conclusion is actually correct as stated."
+        explanation: "This option has the behavior of `-Z` backwards — it describes what `-ZZ` does, not `-Z`."
+      - id: b
+        text: "`-Z` only attempts StartTLS and silently falls back to plaintext if negotiation fails, so success proves nothing conclusive about encryption; `-ZZ` should be used instead, since it aborts on failure."
+        explanation: "Correct. `-Z` is a \"try StartTLS\" flag — if negotiation fails for any reason, the client silently continues over the original unencrypted connection instead of erroring out. A successful search with `-Z` therefore does not prove encryption actually happened. `-ZZ` requires the StartTLS upgrade to succeed and aborts the entire operation with an explicit error if it doesn't, making it the only one of the two that constitutes real proof."
+      - id: c
+        text: "`ldapsearch` never uses TLS regardless of flags; only `ldapwhoami` can test TLS."
+        explanation: "This option is incorrect because `ldapsearch -Z`/`-ZZ` against port 389 (StartTLS) and `-H ldaps://` against port 636 (native LDAPS) both genuinely use TLS; `ldapwhoami` is a useful complementary tool for proving a specific bind credential, not the only tool capable of exercising TLS."
+      - id: d
+        text: "The conclusion is correct, but only because port 636 was used instead of 389."
+        explanation: "This option is incorrect because the command shown explicitly connects to `ldap://127.0.0.1` on the default port (389), not 636."
+    correct_option: b
+    explanation: "`-Z` is a \"try StartTLS\" flag — if negotiation fails for any reason, the client silently continues over the original unencrypted connection instead of erroring out. A successful search with `-Z` therefore does not prove encryption actually happened. `-ZZ` requires the StartTLS upgrade to succeed and aborts the entire operation with an explicit error if it doesn't, making it the only one of the two that constitutes real proof."
+
+  - id: ats005-040-q05
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Resolve directory users with getent before testing a login"
+    source_readings:
+      - sections/section-040/module-03/course-03-wiring-nss-and-checking-in-order.md
+    prompt: |-
+      On a client running `sssd`, you configure `/etc/sssd/sssd.conf` with a correct `[domain/example.com]` section pointing at a working, populated LDAP server, set the file to `600 root:root`, and start the service successfully. However, `getent passwd lfcsuser` returns nothing. `sudo systemctl status sssd` shows the service active with no errors. What should you check first?
+    options:
+      - id: a
+        text: "Whether `/etc/nsswitch.conf`'s `passwd` line includes `sss` alongside `files`."
+        explanation: "Correct. NSS only consults the sources listed on the relevant `nsswitch.conf` line. If the `passwd` line still reads `passwd: files` with no `sss` appended, `getent` never asks SSSD anything at all — regardless of how correctly `sssd.conf` itself is configured or how cleanly the service started. This is the single most common reason a seemingly correct SSSD setup appears to do nothing."
+      - id: b
+        text: "Whether the LDAP server's TLS certificate has expired."
+        explanation: "This option is incorrect because an expired certificate would typically cause `sssd`'s LDAP connection itself to fail (visible in `sssd` logs or a degraded service state), not a clean \"active, no errors\" status combined with silently empty `getent` output."
+      - id: c
+        text: "Whether `lfcsuser`'s `uidNumber` in the directory conflicts with a local user's UID."
+        explanation: "This option is incorrect because a UID conflict would produce an ambiguous or incorrect resolution result at worst, not a completely empty `getent` response, and the scenario doesn't indicate a local account by that name exists."
+      - id: d
+        text: "Whether `cache_credentials = True` is set in `sssd.conf`."
+        explanation: "This option is incorrect because `cache_credentials` affects whether previously-seen users can authenticate during an LDAP outage — it does not control whether NSS is wired to query `sssd` in the first place."
+    correct_option: a
+    explanation: "NSS only consults the sources listed on the relevant `nsswitch.conf` line. If the `passwd` line still reads `passwd: files` with no `sss` appended, `getent` never asks SSSD anything at all — regardless of how correctly `sssd.conf` itself is configured or how cleanly the service started. This is the single most common reason a seemingly correct SSSD setup appears to do nothing."
+
+  - id: ats005-040-q06
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Explain why a directory user has no home folder"
+    source_readings:
+      - sections/section-040/module-04/course-01-the-missing-home.md
+    prompt: |-
+      `getent passwd newcomer` shows the home `/home/newcomer`, yet `ls -d /home/newcomer` fails. What explains this?
+    options:
+      - id: a
+        text: "The directory stores only the home path as text, and nothing creates the folder unless a login step does."
+        explanation: "Correct. The `homeDirectory` attribute is not a folder."
+      - id: b
+        text: "`sssd` deletes home folders of directory users."
+        explanation: "No. `sssd` never removes homes."
+      - id: c
+        text: "The user must first run `useradd -m newcomer` on every host."
+        explanation: "No. The user already exists in the directory, so this is the wrong tool."
+      - id: d
+        text: "Home folders are created when `getent` is run."
+        explanation: "No. `getent` only reads records."
+    correct_option: a
+    explanation: "The `homeDirectory` attribute is not a folder."
+
+  - id: ats005-040-q07
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Switch on home creation with the Ubuntu tool"
+    source_readings:
+      - sections/section-040/module-04/course-02-creating-homes-on-first-login.md
+    prompt: |-
+      Which command switches on home creation for logins on Ubuntu 24.04, without editing PAM files by hand?
+    options:
+      - id: a
+        text: "`sudo pam-auth-update --enable mkhomedir`"
+        explanation: "Correct. It adds the `pam_mkhomedir` session line to the shared files."
+      - id: b
+        text: "`sudo systemctl enable mkhomedir`"
+        explanation: "No. This is not a service."
+      - id: c
+        text: "`sudo usermod --mkhome newcomer`"
+        explanation: "No. There is no such option for existing directory users."
+      - id: d
+        text: "`sudo sssctl enable-homes`"
+        explanation: "No. There is no such command."
+    correct_option: a
+    explanation: "It adds the `pam_mkhomedir` session line to the shared files."
+
+  - id: ats005-040-q08
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Name the PAM phase for home creation"
+    source_readings:
+      - sections/section-040/module-04/course-02-creating-homes-on-first-login.md
+    prompt: |-
+      In which PAM phase does `pam_mkhomedir` run, and in which shared file does the line appear?
+    options:
+      - id: a
+        text: "The `session` phase, in `/etc/pam.d/common-session`."
+        explanation: "Correct. It runs when a session opens, so it can build the home just before the user needs it."
+      - id: b
+        text: "The `auth` phase, in `/etc/pam.d/common-auth`."
+        explanation: "No. `auth` checks who the user is."
+      - id: c
+        text: "The `password` phase, in `/etc/pam.d/common-password`."
+        explanation: "No. That phase handles password changes."
+      - id: d
+        text: "The `account` phase, in `/etc/pam.d/common-account`."
+        explanation: "No. That phase decides whether the account may log in."
+    correct_option: a
+    explanation: "It runs when a session opens, so it can build the home just before the user needs it."
+
+  - id: ats005-040-q09
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Explain which homes get files from /etc/skel"
+    source_readings:
+      - sections/section-040/module-04/course-02-creating-homes-on-first-login.md
+    prompt: |-
+      After `newcomer` has logged in once, you add `/etc/skel/WELCOME.txt`. Who gets the file?
+    options:
+      - id: a
+        text: "Only homes created after that point. The home of `newcomer` stays as it is."
+        explanation: "Correct. `/etc/skel` is copied once, when a home is created."
+      - id: b
+        text: "Every home on the system, at the next login."
+        explanation: "No. Existing homes are never changed."
+      - id: c
+        text: "Only `newcomer`, because that user logged in last."
+        explanation: "No. The file is not tied to a user."
+      - id: d
+        text: "Nobody, because files in `/etc/skel` are ignored by `pam_mkhomedir`."
+        explanation: "No. `pam_mkhomedir` copies `/etc/skel` into new homes."
+    correct_option: a
+    explanation: "`/etc/skel` is copied once, when a home is created."
+
+  - id: ats005-040-q10
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Test a first login the right way"
+    source_readings:
+      - sections/section-040/module-04/course-02-creating-homes-on-first-login.md
+    prompt: |-
+      You enabled `mkhomedir` and want to test it. Which test is reliable?
+    options:
+      - id: a
+        text: "`sudo su - newcomer -c pwd` for a user who never logged in before."
+        explanation: "Correct. `su -` runs the session steps, and a new user has no home yet."
+      - id: b
+        text: "`sudo su newcomer -c pwd`, without the dash."
+        explanation: "No. Without the dash, the login steps do not run."
+      - id: c
+        text: "`getent passwd newcomer`"
+        explanation: "No. This only reads the record. It creates nothing."
+      - id: d
+        text: "`sudo su - lfcsuser -c pwd` for a user who already has a home."
+        explanation: "No. Nothing is created when the home exists, so this proves nothing."
+    correct_option: a
+    explanation: "`su -` runs the session steps, and a new user has no home yet."
+
+  - id: ats005-040-q11
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "State the mode that sssd requires for its configuration file"
+    source_readings:
+      - sections/section-040/module-03/course-02-writing-sssd-conf.md
+    prompt: |-
+      `sssd` refuses to start and `sssctl config-check` complains about `/etc/sssd/sssd.conf`. The file is mode `644`. Which owner and mode does it need?
+    options:
+      - id: a
+        text: "`root:root` with mode `600`."
+        explanation: "Correct. The file can hold secrets, so `sssd` insists on this."
+      - id: b
+        text: "`sssd:sssd` with mode `666`."
+        explanation: "No. A world-writable file is rejected."
+      - id: c
+        text: "`root:root` with mode `777`."
+        explanation: "No. Opening the file wider makes it worse."
+      - id: d
+        text: "Any owner, as long as the mode is `644`."
+        explanation: "No. `644` is the mode that is refused."
+    correct_option: a
+    explanation: "The file can hold secrets, so `sssd` insists on this."

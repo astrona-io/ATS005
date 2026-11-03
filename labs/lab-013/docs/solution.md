@@ -1,19 +1,19 @@
 # Solution Walkthrough
 
-This guide explains how to check user provisioning defaults, force user password resets, configure hard account-expiration dates, and safely lock or delete existing accounts.
+This walkthrough checks the account defaults, creates `contractor7` with a forced password change and an account expiry date, locks `contractor3`, and removes `contractor1`. Run every command on the lab machine (`astrona ssh ats-005-lab-013`).
 
 ---
 
 ## Step 1: Inspect user provisioning defaults
 
-Before creating any new user accounts, it is essential to understand the system's default configurations. This helps ensure that newly created accounts automatically conform to organizational security standards.
+Before you create an account with the defaults, read what the defaults really are on this machine.
 
 ```bash
 useradd -D
 ```
-*   `useradd -D`: The `-D` (defaults) option displays the default values used by the `useradd` command when no overrides are passed. This includes the default home directory base path (e.g. `/home`), default shell (e.g. `/bin/bash`), and default skeleton directory (`/etc/skel`).
+- `useradd -D`: the `-D` (defaults) option shows the values `useradd` uses when you pass no overrides. They include the home base path (for example `/home`), the default shell (for example `/bin/sh` or `/bin/bash`) and the welcome kit directory (`/etc/skel`).
 
-You can also inspect system-wide account creation policies (such as default password lifespans or minimum UID boundaries) by viewing the `/etc/login.defs` configuration file:
+The number rules for new accounts, such as password age limits and UID ranges, live in `/etc/login.defs`:
 ```bash
 cat /etc/login.defs | grep -E '^(UID_MIN|UID_MAX|PASS_MAX_DAYS|PASS_MIN_DAYS)'
 ```
@@ -22,80 +22,80 @@ cat /etc/login.defs | grep -E '^(UID_MIN|UID_MAX|PASS_MAX_DAYS|PASS_MIN_DAYS)'
 
 ## Step 2: Create contractor7 using system defaults
 
-We need to create a new user named `contractor7` using the system's default configuration settings.
+Create `contractor7` with no overrides, so the defaults apply:
 
 ```bash
 sudo useradd -m contractor7
 ```
-*   `useradd -m`: The `-m` (make home) flag tells the system to create a home directory for the user. Since we do not specify any other overrides (like `-s` or `-d`), `useradd` automatically applies the defaults we inspected in Step 1. The home directory will be created under `/home/contractor7` and populate with configuration files copied from the `/etc/skel` skeleton directory.
+- `useradd -m`: `-m` (make home) creates the home directory. Because you pass no other options (such as `-s` or `-d`), `useradd` uses the defaults you read in Step 1. The home directory is created under the default base, here `/home/contractor7`, and filled with files copied from `/etc/skel`.
 
 ---
 
 ## Step 3: Set and expire contractor7's password
 
-To secure the new account, we will set a temporary password and force the user to change it on their very first login.
+Set a temporary password, then force the user to change it at their first login:
 
 ```bash
 sudo passwd contractor7
 sudo passwd -e contractor7
 ```
-*   `passwd contractor7`: Prompts you to set a password for the user.
-*   `passwd -e contractor7`: The `-e` (expire) flag instantly expires the user's password.
-*   **Why we do this:** Setting a password first and then expiring it forces a password change upon their first authentication. Expiring an account that has no password can behave unpredictably depending on PAM configurations.
-*   **Tip:** An alternative low-level command is `sudo chage -d 0 contractor7`, which sets the "last password change" date to `0` (the Unix Epoch), which the system interprets as an expired password.
+- `passwd contractor7` asks you to type a password for the user.
+- `passwd -e contractor7`: `-e` (expire) expires the password at once. It sets the "last password change" field in `/etc/shadow` to `0`, which is what the grader checks.
+- **Why both:** setting a password first and then expiring it forces a change at the first login. Expiring an account that has no password can behave differently depending on the PAM configuration.
+- The lower-level command `sudo chage -d 0 contractor7` does the same: it sets the "last password change" date to `0` (1 January 1970), which the system reads as an expired password.
 
 ---
 
 ## Step 4: Set the account to fully expire in 30 days
 
-Unlike password aging (which only forces password updates), we want to set a hard expiration date for the entire user account itself. Once this date is reached, the account cannot log in under any circumstances.
+Password aging only forces a new password. The task asks for a hard expiration date for the whole account: after that date, the account cannot log in at all.
 
 ```bash
 sudo chage -E "$(date -d '+30 days' +%Y-%m-%d)" contractor7
 ```
-*   `chage -E`: Sets the absolute account expiration date.
-*   `$(date -d '+30 days' +%Y-%m-%d)`: Dynamically calculates the date exactly 30 days from now in the required `YYYY-MM-DD` format.
+- `chage -E` sets the account expiration date.
+- `$(date -d '+30 days' +%Y-%m-%d)` works out the date 30 days from now in the `YYYY-MM-DD` format `chage` expects.
 
-Verify the account aging configuration:
+Check the dates:
 ```bash
 sudo chage -l contractor7
 ```
-*   `-l` (list): Displays detailed account policy settings, showing the exact date when the account will expire.
+- `-l` (list) shows all the password and account dates, including the day the account expires.
 
 ---
 
 ## Step 5: Lock contractor3 without deleting files
 
-We need to suspend `contractor3`'s access immediately while preserving their home directory, files, and settings intact for later audit or recovery.
+Stop `contractor3` from logging in at once, but keep the account, its home directory and its settings for the investigation:
 
 ```bash
 sudo passwd -l contractor3
 ```
-*   `passwd -l`: The `-l` (lock) flag locks the account's password by prefixing the encrypted password hash in `/etc/shadow` with a `!` character. This invalidates the password hash so password-based logins fail, but leaves the hash intact so it can be unlocked later with `passwd -u`.
+- `passwd -l`: `-l` (lock) puts a `!` in front of the password hash in `/etc/shadow`. The hash can no longer match, so password logins fail. The hash itself stays, so `passwd -u` can unlock the account later.
 
-Verify that the account is locked:
+Check that the account is locked:
 ```bash
 sudo passwd -S contractor3
 ```
-*   `-S` (status): Reports the status of the account password. A locked account is indicated by an `L` (locked) status flag.
+- `-S` (status) reports the password state. `L` means locked.
 
 ---
 
 ## Step 6: Delete the offboarded contractor1 account
 
-Since `contractor1` has completed their contract and left the organization, we want to delete their account and wipe their home directory and mailbox files off the system entirely.
+`contractor1` has left for good. Delete the account together with its home directory and mail spool:
 
 ```bash
 sudo userdel -r contractor1
 ```
-*   `userdel -r`: The `-r` (remove) flag tells the system to delete the user's account entry from `/etc/passwd` AND recursively delete their home directory and mail spool.
-*   **Warning:** Running `userdel` without `-r` will delete the user account but leave their home directory on disk. Those files will now belong to an unassigned UID, which poses a security and maintenance risk.
+- `userdel -r`: `-r` (remove) deletes the account's entry from `/etc/passwd` **and** its home directory and mail spool.
+- **Warning:** `userdel` without `-r` deletes the account but leaves the home directory on disk. Those files then belong to a UID with no name, which is a security and maintenance risk.
 
 ---
 
-## Verification
+## Step 7: Check your work and submit
 
-Verify that all changes were successfully applied before completing the lab:
+Check every change before you send the lab for grading:
 
 ```bash
 # Verify contractor7 was created with defaults and skeleton files
@@ -117,4 +117,10 @@ id contractor1
 # Expect: "no such user"
 ls -la /home/contractor1
 # Expect: "No such file or directory" (confirming the home directory was deleted)
+```
+
+From your own computer, not the lab machine, send the lab for grading:
+
+```bash
+astrona submit -c labs/lab-013
 ```

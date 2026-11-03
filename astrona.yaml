@@ -1,0 +1,705 @@
+# Course manifest for ATS005 - Users and Groups (Linux Foundation Certified
+# System Administrator, LFCS).
+#
+# One entry per section under `modules:`. Each section lists, in order: its
+# README, then for each module the landing page (course.md), its parts
+# (course-0N-*.md), and right after the part a lab tests, the lab's
+# question.md reading and the `type: lab` entry. The module's wrap-up page
+# comes last. The section quiz and the section capstone close the section.
+# Playgrounds are not listed: the landing page's <!-- astrona:playground -->
+# marker shows them. solution.md files are never listed.
+#
+# Every `type: lab` entry carries difficulty, estimated_duration, topic,
+# task_kind, tags, learning_goals and resources (see CLAUDE.md for the
+# allowed values). Every `path:` is relative to this file.
+
+training:
+  id: ATS005
+  title: "LFCS: Users and Groups"
+  description: >
+    Training material covering the Linux Foundation Certified System
+    Administrator (LFCS) Users and Groups domain, with hands-on labs for
+    each competency.
+
+  certification:
+    name: Linux Foundation Certified System Administrator
+    code: LFCS
+    provider: Linux Foundation
+    domain: Users and Groups
+    weight: 10
+
+modules:
+
+
+  - id: module-010
+    title: "Section 010: Local Account & Group Lifecycle"
+    description: >
+      Move beyond basic useradd/usermod busywork: relocate an existing
+      account's primary group and home directory, provision new accounts
+      with the right supplementary groups and a least-privilege sudoers
+      rule, manage the group lifecycle directly, and handle the rest of
+      an account's life — defaults, password aging, locking, and clean
+      removal.
+
+    content:
+      - type: reading
+        title: "Section Overview"
+        path: sections/section-010/README.md
+      - type: reading
+        title: "User & Group Account Management"
+        path: sections/section-010/module-01/course.md
+      - type: reading
+        title: "Primary Groups And Moving A Home"
+        path: sections/section-010/module-01/course-01-primary-groups-and-moving-a-home.md
+      - type: reading
+        title: "Creating A New Account In One Command"
+        path: sections/section-010/module-01/course-02-creating-a-new-account.md
+      - type: reading
+        title: "A Scoped sudo Rule"
+        path: sections/section-010/module-01/course-03-a-scoped-sudo-rule.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-011/docs/question.md
+      - type: lab
+        title: "User & Group Provisioning and Scoped Sudo Lab"
+        path: labs/lab-011
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: local-accounts
+        task_kind: build
+        tags: [usermod, useradd, primary-group, supplementary-groups, home-directory, sudoers, visudo, nopasswd]
+        learning_goals:
+          - Move an account to a new primary group and home directory, files included
+          - Create an account with the right groups, home and shell in one command
+          - Grant one exact command through sudo with no password, and nothing more
+        resources:
+          - name: "useradd manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/useradd.8.html
+          - name: "usermod manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/usermod.8.html
+          - name: "sudoers manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/sudoers.5.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-01/course-04-wrap-up.md
+      - type: reading
+        title: "Group Lifecycle Management"
+        path: sections/section-010/module-02/course.md
+      - type: reading
+        title: "Creating Groups And Adding Members"
+        path: sections/section-010/module-02/course-01-creating-groups-and-adding-members.md
+      - type: reading
+        title: "When A Membership Change Takes Effect"
+        path: sections/section-010/module-02/course-02-when-membership-takes-effect.md
+      - type: reading
+        title: "Renaming And Deleting Groups"
+        path: sections/section-010/module-02/course-03-renaming-and-deleting-groups.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-012/docs/question.md
+      - type: lab
+        title: "Group Creation, Membership & the Active-Group Trap Lab"
+        path: labs/lab-012
+        difficulty: beginner
+        estimated_duration: 15m
+        topic: groups
+        task_kind: build
+        tags: [groupadd, groupmod, groupdel, gid, usermod, supplementary-groups, primary-group]
+        learning_goals:
+          - Create a group with a fixed GID and add existing users to it without touching their other groups
+          - Rename a group while keeping its GID and its members
+          - Delete a group that nothing uses
+        resources:
+          - name: "groupadd manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/groupadd.8.html
+          - name: "groupmod manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/groupmod.8.html
+          - name: "groupdel manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/groupdel.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-02/course-04-wrap-up.md
+      - type: reading
+        title: "Account Lifecycle: Defaults, Aging & Locking"
+        path: sections/section-010/module-03/course.md
+      - type: reading
+        title: "Real Defaults And A Forced Password Change"
+        path: sections/section-010/module-03/course-01-defaults-and-a-forced-password-change.md
+      - type: reading
+        title: "Password Aging And Account Expiration"
+        path: sections/section-010/module-03/course-02-password-aging-and-account-expiration.md
+      - type: reading
+        title: "Locking An Account And The SSH Key Gap"
+        path: sections/section-010/module-03/course-03-locking-and-the-ssh-key-gap.md
+      - type: reading
+        title: "Removing An Account Cleanly"
+        path: sections/section-010/module-03/course-04-removing-an-account.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-013/docs/question.md
+      - type: lab
+        title: "Account Defaults, Password Aging & Locking Lab"
+        path: labs/lab-013
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: account-lifecycle
+        task_kind: build
+        tags: [useradd-defaults, chage, password-expiry, account-expiry, account-lock, userdel, shadow]
+        learning_goals:
+          - Create an account with the system's real defaults and force a new password at first login
+          - Set an account to expire on a date and lock another without deleting it
+          - Remove an offboarded account together with its home directory
+        resources:
+          - name: "chage manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/chage.1.html
+          - name: "useradd manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/useradd.8.html
+          - name: "userdel manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/userdel.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-03/course-05-wrap-up.md
+      - type: reading
+        title: "Sudoers Drop-ins, Aliases & Group Rules"
+        path: sections/section-010/module-04/course.md
+      - type: reading
+        title: "Drop-in Files And visudo"
+        path: sections/section-010/module-04/course-01-drop-in-files-and-visudo.md
+      - type: reading
+        title: "Aliases And Group Rules"
+        path: sections/section-010/module-04/course-02-aliases-and-group-rules.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-014/docs/question.md
+      - type: lab
+        title: "Group Sudo Rules With Aliases Lab"
+        path: labs/lab-014
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: sudo
+        task_kind: build
+        tags: [sudoers, sudoers-d, visudo, nopasswd]
+        learning_goals:
+          - Write a sudoers drop-in with a command alias and a group rule that needs no password
+          - Give a second user one command that still asks for a password
+          - Prove the file is safe with visudo -c and sudo -l
+        resources:
+          - name: "sudoers manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/sudoers.5.html
+          - name: "visudo manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/visudo.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-010/module-04/course-03-wrap-up.md
+      - type: quiz
+        title: "Section 010 Knowledge Check: Local Account & Group Lifecycle"
+        path: sections/section-010/quiz.yaml
+        pass_score: 70
+      - type: reading
+        title: "Question"
+        path: labs/lab-010/docs/question.md
+      - type: lab
+        title: "Local Account & Group Lifecycle Capstone Lab"
+        path: labs/lab-010
+        difficulty: advanced
+        estimated_duration: 45m
+        topic: local-accounts
+        task_kind: build
+        tags: [usermod, useradd, sudoers, groupadd, groupmod, account-lock, account-expiry, userdel]
+        learning_goals:
+          - Relocate one account and provision another with a scoped sudo rule
+          - Create, rename and delete groups without losing GIDs or members
+          - Lock, expire and remove accounts at the right stage of their life
+        resources:
+          - name: "usermod manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/usermod.8.html
+          - name: "groupmod manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/groupmod.8.html
+          - name: "chage manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/chage.1.html
+          - name: "sudoers manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/sudoers.5.html
+
+  - id: module-020
+    title: "Section 020: Access Control & Resource Limits"
+    description: >
+      Extend permissions beyond the standard owner/group/other model with
+      POSIX ACLs for one-off grants that don't touch group membership,
+      and enforce resource limits the way the system actually respects
+      them — through PAM and limits.conf, not a fragile per-user shell
+      hack.
+
+    content:
+      - type: reading
+        title: "Section Overview"
+        path: sections/section-020/README.md
+      - type: reading
+        title: "Access Control Lists: Permissions Beyond Three Buckets"
+        path: sections/section-020/module-01/course.md
+      - type: reading
+        title: "Reading And Granting ACL Entries"
+        path: sections/section-020/module-01/course-01-reading-and-granting-acl-entries.md
+      - type: reading
+        title: "Default ACLs For Files Created Later"
+        path: sections/section-020/module-01/course-02-default-acls.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-021/docs/question.md
+      - type: lab
+        title: "ACL-Based Shared Directory Access Lab"
+        path: labs/lab-021
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: acl
+        task_kind: build
+        tags: [setfacl, getfacl, named-entries, default-acl, recursive, acl-mask]
+        learning_goals:
+          - Grant two users different access to a whole directory tree with named ACL entries
+          - Add default ACL entries so new files inherit both grants
+          - Keep the owner, group and base mode of the tree unchanged
+        resources:
+          - name: "setfacl manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/setfacl.1.html
+          - name: "getfacl manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/getfacl.1.html
+          - name: "acl manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/acl.5.html
+      - type: reading
+        title: "The ACL Mask"
+        path: sections/section-020/module-01/course-03-the-acl-mask.md
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-020/module-01/course-04-wrap-up.md
+      - type: reading
+        title: "PAM Resource Limits: Making a Restriction Actually Stick"
+        path: sections/section-020/module-02/course.md
+      - type: reading
+        title: "Why A .bashrc Limit Is Not Enough"
+        path: sections/section-020/module-02/course-01-why-a-bashrc-limit-is-not-enough.md
+      - type: reading
+        title: "Hard Limits Through PAM"
+        path: sections/section-020/module-02/course-02-hard-limits-through-pam.md
+      - type: reading
+        title: "One Login Per Group Member"
+        path: sections/section-020/module-02/course-03-one-login-per-group-member.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-022/docs/question.md
+      - type: lab
+        title: "PAM Hard Limits & maxlogins Lab"
+        path: labs/lab-022
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: resource-limits
+        task_kind: migration
+        tags: [pam-limits, limits-d, nproc, maxlogins, hard-limit, ulimit, bashrc]
+        learning_goals:
+          - Find the soft process limit a user really runs with
+          - Replace a .bashrc ulimit line with a hard nproc limit in limits.d
+          - Allow members of a group only one login session at a time
+        resources:
+          - name: "limits.conf manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/limits.conf.5.html
+          - name: "pam_limits manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/pam_limits.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-020/module-02/course-04-wrap-up.md
+      - type: reading
+        title: "Resource Limits For Services And Users With systemd"
+        path: sections/section-020/module-03/course.md
+      - type: reading
+        title: "Limits For A Service"
+        path: sections/section-020/module-03/course-01-limits-for-a-service.md
+      - type: reading
+        title: "Limits For A User Slice"
+        path: sections/section-020/module-03/course-02-limits-for-a-user-slice.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-023/docs/question.md
+      - type: lab
+        title: "systemd Service And User Limits Lab"
+        path: labs/lab-023
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: resource-limits
+        task_kind: build
+        tags: [systemd-limits, drop-in, tasks-max, hard-limit]
+        learning_goals:
+          - Raise the open-file limit of a running service and prove the process carries it
+          - Cap one user's whole slice with a setting that survives a reload
+          - Explain why limits.conf does not reach services
+        resources:
+          - name: "systemd.exec manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/systemd.exec.5.html
+          - name: "systemd.resource-control manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/systemd.resource-control.5.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-020/module-03/course-03-wrap-up.md
+      - type: reading
+        title: "ACLs On Whole Trees: Recursion, Backup And Restore"
+        path: sections/section-020/module-04/course.md
+      - type: reading
+        title: "ACLs On A Whole Tree"
+        path: sections/section-020/module-04/course-01-acls-on-a-whole-tree.md
+      - type: reading
+        title: "Backup And Restore"
+        path: sections/section-020/module-04/course-02-backup-and-restore.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-024/docs/question.md
+      - type: lab
+        title: "ACL Tree Backup And Restore Lab"
+        path: labs/lab-024
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: acl
+        task_kind: build
+        tags: [setfacl, getfacl, recursive, named-entries, default-acl, acl-backup]
+        learning_goals:
+          - Save the ACLs of a whole tree to a file before a risky change
+          - Restore every entry, owner and group after a cleanup accident
+          - Remove one user from a whole tree
+        resources:
+          - name: "setfacl manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/setfacl.1.html
+          - name: "getfacl manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/getfacl.1.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-020/module-04/course-03-wrap-up.md
+      - type: quiz
+        title: "Section 020 Knowledge Check: Access Control & Resource Limits"
+        path: sections/section-020/quiz.yaml
+        pass_score: 70
+      - type: reading
+        title: "Question"
+        path: labs/lab-020/docs/question.md
+      - type: lab
+        title: "Access Control & Resource Limits Capstone Lab"
+        path: labs/lab-020
+        difficulty: advanced
+        estimated_duration: 40m
+        topic: acl
+        task_kind: build
+        tags: [setfacl, named-entries, default-acl, recursive, limits-d, nproc, maxlogins, hard-limit]
+        learning_goals:
+          - Give two outside users read-write and read-only access to a shared tree, inherited by new files
+          - Turn a soft .bashrc process limit into a hard PAM limit
+          - Limit a group to one login session at a time
+        resources:
+          - name: "setfacl manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/setfacl.1.html
+          - name: "limits.conf manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/limits.conf.5.html
+          - name: "pam_limits manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/pam_limits.8.html
+
+  - id: module-030
+    title: "Section 030: Shell Environment, Profiles & PATH"
+    description: >
+      Master exactly which of the many dotfiles and drop-ins actually
+      gets sourced for a given session type, set variables system-wide
+      and personally through the correct mechanism for each, and extend
+      a user's PATH persistently without opening a privilege-escalation
+      hole.
+
+    content:
+      - type: reading
+        title: "Section Overview"
+        path: sections/section-030/README.md
+      - type: reading
+        title: "System-Wide & Personal Environment Profiles"
+        path: sections/section-030/module-01/course.md
+      - type: reading
+        title: "The Ship-Wide Notice Board"
+        path: sections/section-030/module-01/course-01-the-ship-wide-notice-board.md
+      - type: reading
+        title: "Login Scripts In /etc/profile.d"
+        path: sections/section-030/module-01/course-02-login-scripts-in-profile-d.md
+      - type: reading
+        title: "Login Shells, Non-Login Shells And Personal Variables"
+        path: sections/section-030/module-01/course-03-login-and-non-login-shells.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-031/docs/question.md
+      - type: lab
+        title: "System-Wide and Personal Environment Variables Lab"
+        path: labs/lab-031
+        difficulty: beginner
+        estimated_duration: 15m
+        topic: environment
+        task_kind: build
+        tags: [environment-variables, etc-environment, bash-profile, login-shell-startup]
+        learning_goals:
+          - Set a variable for every user's login and non-login shells through /etc/environment
+          - Set a personal variable for one user only in their login profile
+        resources:
+          - name: "environment manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man7/environ.7.html
+          - name: "pam_env manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/pam_env.8.html
+          - name: "Bash Reference Manual: Bash Startup Files"
+            url: https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html
+      - type: reading
+        title: "The Sessions That See None Of This"
+        path: sections/section-030/module-01/course-04-cron-and-systemd.md
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-030/module-01/course-05-wrap-up.md
+      - type: reading
+        title: "Extending PATH Safely"
+        path: sections/section-030/module-02/course.md
+      - type: reading
+        title: "How The Shell Finds A Command"
+        path: sections/section-030/module-02/course-01-how-the-shell-finds-a-command.md
+      - type: reading
+        title: "Appending And Saving PATH"
+        path: sections/section-030/module-02/course-02-appending-and-saving-path.md
+      - type: reading
+        title: "The Command-Location Cache"
+        path: sections/section-030/module-02/course-03-the-command-location-cache.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-032/docs/question.md
+      - type: lab
+        title: "Safe PATH Extension & Precedence Lab"
+        path: labs/lab-032
+        difficulty: beginner
+        estimated_duration: 15m
+        topic: path
+        task_kind: build
+        tags: [path, bash-profile, command-shadowing, login-shell-startup]
+        learning_goals:
+          - Add a personal directory to PATH so it survives new login shells
+          - Append the directory so a same-named script never replaces a system command
+        resources:
+          - name: "Bash Reference Manual: Bash Startup Files"
+            url: https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html
+          - name: "bash manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/bash.1.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-030/module-02/course-04-wrap-up.md
+      - type: quiz
+        title: "Section 030 Knowledge Check: Shell Environment & PATH"
+        path: sections/section-030/quiz.yaml
+        pass_score: 70
+      - type: reading
+        title: "Question"
+        path: labs/lab-030/docs/question.md
+      - type: lab
+        title: "Shell Environment & PATH Capstone Lab"
+        path: labs/lab-030
+        difficulty: intermediate
+        estimated_duration: 25m
+        topic: environment
+        task_kind: build
+        tags: [environment-variables, profile-d, bash-profile, login-shell-startup, path, command-shadowing]
+        learning_goals:
+          - Export a variable for every login shell through a profile.d script
+          - Set a personal variable and extend PATH for one user only
+          - Prove that a decoy script never replaces a real system command
+        resources:
+          - name: "Bash Reference Manual: Bash Startup Files"
+            url: https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html
+          - name: "bash manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/bash.1.html
+
+  - id: module-040
+    title: "Section 040: Centralized Identity with LDAP"
+    description: >
+      Build centralized identity from the ground up: install and secure
+      an OpenLDAP server with TLS, populate it with real organizational
+      and POSIX account data via LDIF, and wire a client into it with
+      sssd — verifying NSS resolution before ever testing a login.
+
+    content:
+      - type: reading
+        title: "Section Overview"
+        path: sections/section-040/README.md
+      - type: reading
+        title: "LDAP Server Installation & TLS"
+        path: sections/section-040/module-01/course.md
+      - type: reading
+        title: "The Configuration Is A Tree"
+        path: sections/section-040/module-01/course-01-the-configuration-is-a-tree.md
+      - type: reading
+        title: "Naming The Directory And Its Administrator"
+        path: sections/section-040/module-01/course-02-naming-the-directory.md
+      - type: reading
+        title: "Giving The Server Its Certificate"
+        path: sections/section-040/module-01/course-03-giving-the-server-its-certificate.md
+      - type: reading
+        title: "Opening Port 636 And Proving TLS"
+        path: sections/section-040/module-01/course-04-opening-port-636-and-proving-tls.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-041/docs/question.md
+      - type: lab
+        title: "OpenLDAP Server Install & TLS Lab"
+        path: labs/lab-041
+        difficulty: advanced
+        estimated_duration: 35m
+        topic: ldap-server
+        task_kind: build
+        tags: [slapd, cn-config, ldif, tls-certificates, starttls, ldaps]
+        learning_goals:
+          - Set the base DN, admin DN and hashed admin password through cn=config
+          - Wire a certificate and key into slapd and listen on ports 389 and 636
+          - Prove that StartTLS and LDAPS both work
+        resources:
+          - name: "OpenLDAP Administrator's Guide: Configuring slapd"
+            url: https://www.openldap.org/doc/admin26/slapdconf2.html
+          - name: "OpenLDAP Administrator's Guide: Using TLS"
+            url: https://www.openldap.org/doc/admin26/tls.html
+          - name: "slapd-config manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/slapd-config.5.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-040/module-01/course-05-wrap-up.md
+      - type: reading
+        title: "LDAP Directory Population & TLS Bind Verification"
+        path: sections/section-040/module-02/course.md
+      - type: reading
+        title: "LDIF And The First Drawers"
+        path: sections/section-040/module-02/course-01-ldif-and-the-first-drawers.md
+      - type: reading
+        title: "The Group And The User"
+        path: sections/section-040/module-02/course-02-the-group-and-the-user.md
+      - type: reading
+        title: "Setting The Password And Proving The Bind"
+        path: sections/section-040/module-02/course-03-setting-the-password-and-proving-the-bind.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-042/docs/question.md
+      - type: lab
+        title: "LDAP Directory Population & Verified TLS Bind Lab"
+        path: labs/lab-042
+        difficulty: intermediate
+        estimated_duration: 25m
+        topic: ldap-directory
+        task_kind: build
+        tags: [ldif, ldapadd, posix-account, posix-group, ldapsearch, ldapwhoami, starttls]
+        learning_goals:
+          - Add organizational units, a POSIX group and a POSIX user from LDIF files
+          - Set the user's password and prove an authenticated bind over required StartTLS
+        resources:
+          - name: "ldapadd manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/ldapadd.1.html
+          - name: "ldapsearch manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man1/ldapsearch.1.html
+          - name: "OpenLDAP Administrator's Guide: A Quick-Start Guide"
+            url: https://www.openldap.org/doc/admin26/quickstart.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-040/module-02/course-04-wrap-up.md
+      - type: reading
+        title: "LDAP Client Integration with SSSD"
+        path: sections/section-040/module-03/course.md
+      - type: reading
+        title: "Why SSSD"
+        path: sections/section-040/module-03/course-01-why-sssd.md
+      - type: reading
+        title: "Writing sssd.conf"
+        path: sections/section-040/module-03/course-02-writing-sssd-conf.md
+      - type: reading
+        title: "Wiring NSS And Checking In Order"
+        path: sections/section-040/module-03/course-03-wiring-nss-and-checking-in-order.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-043/docs/question.md
+      - type: lab
+        title: "SSSD LDAP Client Integration Lab"
+        path: labs/lab-043
+        difficulty: intermediate
+        estimated_duration: 25m
+        topic: ldap-client
+        task_kind: build
+        tags: [sssd, nsswitch, nss, getent, starttls, local-accounts-intact]
+        learning_goals:
+          - Write a secure sssd.conf that reaches the directory over StartTLS
+          - Add sss to nsswitch.conf and resolve directory users and groups with getent
+          - Prove that local accounts still resolve as before
+        resources:
+          - name: "sssd.conf manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/sssd.conf.5.html
+          - name: "sssd-ldap manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/sssd-ldap.5.html
+          - name: "Ubuntu Server: SSSD with LDAP"
+            url: https://documentation.ubuntu.com/server/how-to/sssd/with-ldap/
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-040/module-03/course-04-wrap-up.md
+      - type: reading
+        title: "Home Directories For Directory Users"
+        path: sections/section-040/module-04/course.md
+      - type: reading
+        title: "The Missing Home"
+        path: sections/section-040/module-04/course-01-the-missing-home.md
+      - type: reading
+        title: "Creating Homes On First Login"
+        path: sections/section-040/module-04/course-02-creating-homes-on-first-login.md
+      - type: reading
+        title: "Question"
+        path: labs/lab-044/docs/question.md
+      - type: lab
+        title: "Home Directories For Directory Users Lab"
+        path: labs/lab-044
+        difficulty: intermediate
+        estimated_duration: 20m
+        topic: ldap-client
+        task_kind: build
+        tags: [sssd, nsswitch, getent, mkhomedir, skel]
+        learning_goals:
+          - Switch on home creation for logins with pam-auth-update
+          - Add a starter file to /etc/skel
+          - Prove that a brand new directory user gets a stocked home on first login
+        resources:
+          - name: "pam_mkhomedir manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/pam_mkhomedir.8.html
+          - name: "pam-auth-update manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man8/pam-auth-update.8.html
+      - type: reading
+        title: "Wrap-Up: Mission Debrief"
+        path: sections/section-040/module-04/course-03-wrap-up.md
+      - type: quiz
+        title: "Section 040 Knowledge Check: Centralized Identity with LDAP"
+        path: sections/section-040/quiz.yaml
+        pass_score: 70
+      - type: reading
+        title: "Question"
+        path: labs/lab-040/docs/question.md
+      - type: lab
+        title: "Centralized Identity with LDAP Capstone Lab"
+        path: labs/lab-040
+        difficulty: advanced
+        estimated_duration: 60m
+        topic: ldap-server
+        task_kind: build
+        tags: [slapd, cn-config, tls-certificates, ldif, posix-account, sssd, nsswitch, local-accounts-intact]
+        learning_goals:
+          - Build a TLS-secured OpenLDAP server and populate it with a POSIX group and user
+          - Wire the same host into the directory with sssd and nsswitch
+          - Prove that directory users resolve while local accounts stay unaffected
+        resources:
+          - name: "OpenLDAP Administrator's Guide"
+            url: https://www.openldap.org/doc/admin26/
+          - name: "sssd-ldap manual page (Ubuntu 24.04)"
+            url: https://manpages.ubuntu.com/manpages/noble/man5/sssd-ldap.5.html
+          - name: "Ubuntu Server: SSSD with LDAP"
+            url: https://documentation.ubuntu.com/server/how-to/sssd/with-ldap/
+
+  - id: module-050
+    title: "LFCS Users and Groups Domain Certification Quiz"
+    description: >
+      A comprehensive, scenario-based final assessment covering all 14
+      modules across the 4 sections of this domain, simulating actual
+      Linux Foundation exam pressure.
+
+    content:
+      - type: quiz
+        title: "Final Domain Certification Quiz"
+        path: sections/final-domain-quiz.yaml
+        pass_score: 70

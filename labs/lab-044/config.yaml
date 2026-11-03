@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-044"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-044-setup"
+      description: "Builds a populated TLS LDAP server with a wired sssd client, users lfcsuser and newcomer, no home folders and pam_mkhomedir off"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-mkhomedir-enabled"
+      description: "Confirms pam_mkhomedir is active in the shared session steps and /etc/skel/WELCOME.txt exists"
+      type: "file"
+      source: "validation/validate-mkhomedir-enabled.sh"
+
+    - name: "verify-first-login-home"
+      description: "Logs in as a brand new directory user and checks the created home, its owner and the starter file"
+      type: "file"
+      source: "validation/validate-first-login.sh"
+
+teardown:
+  keepCluster: false

@@ -1,100 +1,121 @@
 # Solution Walkthrough
 
-This guide explains how to persist command search PATH variables for a specific user, and how to safely extend search paths without shadowing vital system binaries.
+This walkthrough adds `~/work` to the *end* of `candidate`'s `PATH`, saves it in a login-shell file, and proves that a decoy `ls` never wins. `PATH` is the list of directories (decks) the shell searches, from left to right, to find a command by name. Run every command on the lab machine (`astrona ssh ats-005-lab-032`), as `root` until you switch to `candidate` (become `root` with `sudo -i`).
 
 ---
 
-## Step 1: Inspect the current PATH and command resolution
+## Step 1: Look at the current PATH and how commands resolve
 
-Before changing anything, let's explore the current environment from the perspective of the `candidate` user account.
+Before you change anything, look at the environment as `candidate` sees it.
 
-Switch to a clean login session for the `candidate` user:
+Start a clean login session as `candidate`:
+
 ```bash
 su - candidate
 ```
-*   `su -`: The hyphen (`-`) is **critical**. It tells the system to start a clean, genuine **login shell** for the user, fully loading their profile files and environment variables. Without the hyphen, you would switch users but inherit your previous environment!
 
-Verify their current search `PATH` and command locations:
+*   `su -`: the hyphen (`-`) is **critical**. It starts a real **login shell** for the user, which loads their profile files and environment. Without it, you would switch users but keep your previous environment.
+
+Print the search path and ask how `ls` resolves:
+
 ```bash
 echo $PATH
 type ls
 ```
-*   `type ls`: Reports how a typed command is resolved by the shell (e.g. built-in, alias, or filesystem binary path).
+
+*   `type ls` reports how the shell resolves a typed command: a built-in command, an alias, or a file path.
 
 ---
 
-## Step 2: Append ~/work to candidate's PATH persistently
+## Step 2: Append ~/work to candidate's PATH permanently
 
-The `PATH` environment variable is a colon-separated list of directories where the system looks for executable commands when you type them. We want to add candidate's custom tool path (`~/work`) to their environment.
+Add the line to `candidate`'s personal `~/.bash_profile`:
 
-We will append this environment variable to `candidate`'s personal `~/.bash_profile` file:
 ```bash
 echo 'export PATH="$PATH:$HOME/work"' >> ~/.bash_profile
 ```
-Let's analyze the syntax:
-*   `>>`: The double redirect **appends** the line to the end of the file. (Never use a single `>` redirect, as it will overwrite and erase your entire profile!)
-*   `PATH="$PATH:$HOME/work"`: This **appends** candidate's personal tool path (`$HOME/work`) to the *end* of the existing `$PATH` list.
-*   **Why appending is critical (No Shadowing):** Linux searches directories listed in `PATH` from left to right. By placing the system directories (`$PATH`) *before* the personal directory (`$HOME/work`), standard system utilities (such as `ls` or `id`) will always be found and run first. If you prepended your directory (e.g. `export PATH="$HOME/work:$PATH"`), anyone who drops a script named `ls` into `~/work` would hijack that command, posing a major security and system stability risk!
 
-Reload the profile dynamically into your current active shell:
+Here is what the line does:
+
+*   `>>` **appends** the line to the end of the file. Never use a single `>`: it overwrites the whole profile.
+*   `PATH="$PATH:$HOME/work"` puts `$HOME/work` at the *end* of the existing `PATH` list.
+*   **Why appending matters (no shadowing):** the shell searches `PATH` from left to right. With the system directories (`$PATH`) *before* `$HOME/work`, real commands such as `ls` or `id` are always found first. If you put your directory first (for example `export PATH="$HOME/work:$PATH"`), anyone who drops a script named `ls` into `~/work` would take over that command.
+*   **Why `~/.bash_profile` works:** a login shell reads the first of `~/.bash_profile`, `~/.bash_login` and `~/.profile` that exists. Once `~/.bash_profile` exists, it is the one that counts.
+
+Load the profile into your current shell:
+
 ```bash
 source ~/.bash_profile
 ```
-*   `source` (or the shortcut `.`): Sourced execution loads variables directly into the current active shell process, updating the environment immediately without requiring you to log out and back in.
+
+*   `source` (or its short form `.`) runs the file inside the current shell, so the new `PATH` applies straight away without logging out.
 
 ---
 
-## Step 3: Run the custom tool by name
+## Step 3: Run the tool by name
 
-Now that `~/work` is registered in candidate's `PATH`, try executing their script by name alone:
+With `~/work` in `PATH`, run the script by name alone:
+
 ```bash
 helper-tool
 ```
-*   **Expected Output:** `helper-tool from ~/work` (proving the PATH is correctly configured).
+
+*   **Expected Output:** `helper-tool from ~/work` (proving the `PATH` is set correctly).
 
 ---
 
-## Step 4: Prove path shadowing prevention
+## Step 4: Prove a decoy cannot shadow the real command
 
-We want to prove that if a decoy script named `ls` is placed inside `~/work`, the system will ignore it and continue running the safe `/bin/ls` system command.
+Now prove that a decoy script named `ls` in `~/work` is ignored, and the real system `ls` still runs.
 
-Create a decoy script inside `~/work`:
+Save this as `~/work/ls`:
+
 ```bash
-cat > ~/work/ls << 'EOF'
 #!/bin/bash
 echo "decoy ls - should never run"
-EOF
+```
+
+Make it executable:
+
+```bash
 chmod +x ~/work/ls
 ```
 
-Clear the shell's command resolution cache:
+Clear the shell's memory of command locations:
+
 ```bash
 hash -r
 ```
-*   `hash -r`: Bash caches the absolute paths of previously executed commands to save search time. If you alter the `PATH` variable or add files, you must run `hash -r` to clear this lookup cache and force Bash to perform a fresh filesystem search.
 
-Query how the command is resolved:
+*   `hash -r`: bash remembers where it found each command, to save searching. After you change `PATH` or add files, run `hash -r` so bash searches again.
+
+Ask how `ls` resolves now:
+
 ```bash
 type ls
 ```
-*   **Expected Output:** `ls is aliased to...` or `ls is /bin/ls`. This confirms the system resolved the command to the safe, standard location instead of the decoy inside `~/work`.
 
-Run the command to ensure the system is secure:
+*   **Expected Output:** `ls is aliased to...` or `ls is /bin/ls`. The shell resolved the command to the real location, not the decoy in `~/work`.
+
+Run it:
+
 ```bash
 ls
 ```
-The normal, standard directory listing output should print, rather than the decoy's message.
 
-Clean up the decoy script to restore a pristine state:
+You should see a normal directory listing, not the decoy's message.
+
+Remove the decoy:
+
 ```bash
 rm ~/work/ls
 ```
 
 ---
 
-## Verification
+## Step 5: Check your work
 
-Verify that all changes were successfully applied before completing the lab:
+Check every change before you send the lab for grading:
 
 ```bash
 # Check that the export statement exists in the profile
@@ -106,4 +127,9 @@ echo $PATH | tr ':' '\n'
 # Test executing the script
 helper-tool
 ```
-Once verified, run the local validation suite to pass the lab!
+
+From your own computer, not the lab machine, send the lab for grading:
+
+```bash
+astrona submit -c labs/lab-032
+```

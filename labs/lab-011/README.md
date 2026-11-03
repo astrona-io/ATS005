@@ -1,9 +1,35 @@
-# Lab 011: User & Group Provisioning and Scoped Sudo
+---
+estimated_duration: 20m
+---
 
-Welcome to the Module 1 targeted practice sandbox. In this lab, you will relocate an existing user's primary group and home directory, provision a brand-new account with the right supplementary groups, and grant a single exact-command sudo privilege.
+# User & Group Provisioning and Scoped Sudo Lab
+
+Welcome to a crew roster mission, astronaut. One crew member on this ship has the wrong team and the wrong quarters, a new crew member must come aboard, and that new crew member needs the captain's authority for exactly one order.
+
+Your job is to move `user1` to a new primary group and home with all its files, create `user2` with the right groups, home and shell, and write one exact `NOPASSWD` rule in a `/etc/sudoers.d/` drop-in.
 
 ## Launching the Lab
-Run the following command in your terminal to boot the QEMU VM:
+
+Run this command to start the virtual machine:
+
 ```bash
-astrona run --git git@github.com:astrona-io/ATS005.git -c labs/lab-011
+astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c labs/lab-011
+```
+
+Open a terminal on it:
+
+```bash
+astrona ssh ats-005-lab-011
+```
+
+When you think you have finished, send it for grading:
+
+```bash
+astrona submit -c labs/lab-011
+```
+
+When you are done, remove the lab:
+
+```bash
+astrona destroy ats-005-lab-011
 ```

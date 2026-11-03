@@ -1,97 +1,122 @@
 # Solution Walkthrough
 
-This guide explains how to find active session limits, replace unstable personal script-based overrides with secure, PAM-enforced system boundaries, and enforce concurrent session limits for entire user groups.
+This walkthrough finds the number in the coworker's fix, turns it into a hard limit that PAM (Pluggable Authentication Modules, the checklist every login passes through) enforces, removes the old line, and caps the `operators` group to one login each. Run every command on the lab machine (`astrona ssh ats-005-lab-022`).
 
 ---
 
-## Step 1: Discover jackie's current soft limit value
+## Step 1: Find jackie's soft limit value
 
-A previous admin attempted to enforce a process limit (`nproc`) on user `jackie` by writing a line in her personal `.bashrc` profile. This is bad practice:
-1.  `.bashrc` is only executed for interactive bash shells. Non-interactive sessions (such as cron jobs or remote API tasks) bypass it.
-2.  It set only a **soft** limit. Soft limits are advisory and can be increased by the user at will. We want to configure a PAM-enforced **hard** limit (which only root can increase).
+A coworker tried to limit the number of processes (`nproc`) for `jackie` with a line in her personal `.bashrc`. That is a weak fix, for two reasons:
 
-First, inspect jackie's `.bashrc` file to find where the `ulimit` is defined:
+1. `.bashrc` only runs for interactive bash shells. Non-interactive sessions, such as cron jobs or remote scripted commands, skip it.
+2. It sets only a **soft** limit. A user can raise her own soft limit whenever she likes. You want a **hard** limit, enforced by PAM, that only `root` can raise.
+
+First, look at the line in jackie's `.bashrc`:
+
 ```bash
 sudo grep -n ulimit /home/jackie/.bashrc
 ```
 
-Let's query the system directly to find the exact numerical soft limit currently applied to jackie's environment:
+The number at the end of the `ulimit -Sp` line is the value the coworker meant as jackie's soft process limit (for example, `175`). This is the number the task asks you to keep, and the grader compares your hard limit with it.
+
+You may also see this check, which reads the value from a login shell:
+
 ```bash
 sudo -u jackie -i ulimit -Sp
 ```
-*   `sudo -u jackie -i`: Opens an interactive login session as `jackie`, ensuring `.bashrc` is fully sourced.
-*   `ulimit -Sp`: Displays the active **soft** (`-S`) process limit (`-p` / `nproc`). Note down this number (for example, `175`).
+
+- `sudo -u jackie -i` opens an interactive login shell as `jackie`, so her `.bashrc` is read.
+- `ulimit -Sp` asks for a **soft** (`-S`) value.
+
+Be careful with this one. In bash, the `-p` option of `ulimit` is the pipe size, not the process limit; the process limit is `-u` (`ulimit -Su`). So this command does not print the process limit, and the coworker's `ulimit -Sp` line never set one. Take the number from the `.bashrc` line itself.
 
 ---
 
-## Step 2: Enforce the hard limit via PAM configuration
+## Step 2: Set the hard limit through PAM
 
-Rather than modifying the global `/etc/security/limits.conf` directly, we will write a custom configuration inside `/etc/security/limits.d/`. This keeps our customizations modular, isolated, and easy to review.
+Do not edit the big `/etc/security/limits.conf` file. Write your own drop-in file in `/etc/security/limits.d/`. That keeps the change separate and easy to review.
 
-Create and open the limit configuration drop-in file:
+Create and open the drop-in file:
+
 ```bash
 sudo vi /etc/security/limits.d/jackie-nproc.conf
 ```
-Add the following line (replace `175` with the actual number you discovered in Step 1 if it differs):
+
+Add this line (replace `175` with the number you found in Step 1 if it is different):
+
 ```text
 jackie hard nproc 175
 ```
-Let's break down this syntax:
-*   `jackie`: The target user account.
-*   `hard`: Sets a hard limit that cannot be bypassed by the user.
-*   `nproc`: Specifies the maximum number of concurrent processes the user can run.
+
+Here is what each column means:
+
+- `jackie`: the user the line applies to.
+- `hard`: a hard limit, which the user cannot raise.
+- `nproc`: the maximum number of processes the user may run at once.
+- `175`: the number.
 
 ---
 
-## Step 3: Remove the old .bashrc hack
+## Step 3: Remove the old .bashrc line
 
-Since PAM now handles limits securely at session startup, remove the old line from jackie's `.bashrc` file to clean up the environment:
+PAM now applies the limit at every session start, so remove the old line from jackie's `.bashrc`:
+
 ```bash
 sudo sed -i '/ulimit -Sp/d' /home/jackie/.bashrc
 ```
-*   `sed -i '/pattern/d'`: Searches for the line containing `ulimit -Sp` and deletes (`d`) it in-place (`-i`).
+
+- `sed -i '/pattern/d'` finds every line that contains `ulimit -Sp` and deletes (`d`) it in place (`-i`).
 
 ---
 
-## Step 4: Confirm pam_limits.so is enabled in PAM
+## Step 4: Confirm that pam_limits.so is switched on
 
-Limits defined in `/etc/security/limits.conf` and `/etc/security/limits.d/` are enforced by a Pluggable Authentication Module (PAM) named `pam_limits.so`. If this module is not loaded during session setup, our limits will be ignored.
+The lines in `/etc/security/limits.conf` and `/etc/security/limits.d/` are applied by a PAM module called `pam_limits.so`. If that module does not run when a session opens, your limit is ignored.
 
-Verify that the module is enabled in your authentication chains:
+Look for the module in the PAM files:
+
 ```bash
 grep -n pam_limits /etc/pam.d/common-session /etc/pam.d/login /etc/pam.d/sshd 2>/dev/null
 ```
-*   **What to look for:** You should see a line like `session required pam_limits.so` in one or more of these files. On modern Ubuntu systems, this is pre-configured out-of-the-box.
+
+You should see a line such as `session required pam_limits.so` in one or more of these files. On Ubuntu it is switched on out of the box.
 
 ---
 
-## Step 5: Enforce operators maxlogins
+## Step 5: Cap the operators group to one login each
 
-We want to restrict every individual member of the `operators` group to a maximum of `1` active login session at any time.
+Every member of `operators` may have at most `1` login session at a time.
 
-First, verify that the group exists:
+First, check that the group exists and see who is in it:
+
 ```bash
 getent group operators
 ```
 
-Create a dedicated drop-in file:
+Create a separate drop-in file:
+
 ```bash
 sudo vi /etc/security/limits.d/operators-maxlogins.conf
 ```
-Add the following rule:
+
+Add this line:
+
 ```text
 @operators hard maxlogins 1
 ```
-Let's break down this syntax:
-*   `@operators`: The `@` symbol tells PAM that the target is a **group** instead of a single user account.
-*   `hard`: Enforces a strict, unbypassable hard ceiling.
-*   `maxlogins`: Restricts the maximum number of concurrent login sessions.
+
+Here is what each column means:
+
+- `@operators`: the `@` tells PAM that the target is a **group**, not a single user.
+- `hard`: a hard ceiling the members cannot raise.
+- `maxlogins`: the maximum number of login sessions open at the same time.
+- `1`: the number.
 
 ---
 
-## Verification
+## Step 6: Check your work
 
-Confirm your configurations are correct before concluding the lab:
+Check every change before you send the lab for grading:
 
 ```bash
 # Verify jackie's process limit configurations
@@ -105,4 +130,17 @@ sudo -u jackie -i bash -c 'ulimit -Hp; ulimit -Sp'
 # Verify operators maxlogins rule is defined
 sudo grep maxlogins /etc/security/limits.d/operators-maxlogins.conf
 ```
-Once verified, run the local validation suite to pass the lab!
+
+As in Step 1, `ulimit -Hp` and `ulimit -Sp` report the pipe size in bash, not the process limit. To see the new hard process limit from a fresh login, use `-u` instead:
+
+```bash
+sudo -u jackie -i ulimit -Hu
+```
+
+It should print the number you wrote in `jackie-nproc.conf`.
+
+From your own computer, not the lab machine, send the lab for grading:
+
+```bash
+astrona submit -c labs/lab-022
+```

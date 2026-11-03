@@ -50,4 +50,4 @@ This section is divided into two focused modules, each paired with a dedicated h
 
 Test your theoretical knowledge and diagnostic reasoning before tackling the practical lab missions:
 
-*   **[Take the Section 030 Knowledge Check Quiz](./quiz.md)**
+*   **[Take the Section 030 Knowledge Check Quiz](./quiz.yaml)**

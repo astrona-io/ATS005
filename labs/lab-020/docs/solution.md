@@ -1,55 +1,55 @@
 # Solution Walkthrough
 
-This guide explains how to configure granular Access Control Lists (ACLs) for users outside a primary group, find current session limits, set up proper PAM-enforced system boundaries, and restrict maximum group logins.
+This walkthrough gives two outside users their own access to the Atlas tree with access control lists (ACLs), turns `derek`'s `.bashrc` limit into a hard limit that PAM (Pluggable Authentication Modules, the checklist every login passes through) enforces, and caps the `supportstaff` group to one login each. Run every command on the lab machine (`astrona ssh ats-005-lab-020`).
 
 ---
 
 ## Part 1: Scoped ACL access on /srv/data/atlas
 
-Standard Linux permission modes (owner, group, other) only allow you to define access for a single owner, a single group, and everyone else. When you need to grant specific permissions to multiple users who are not in the primary group, you use Access Control Lists (ACLs).
+Standard Linux permissions only describe one owner, one group and everyone else. When several users outside the group each need their own access, you use ACLs: a guest list taped to the directory, with one named entry per extra user.
 
 ### Step 1: Inspect the baseline permissions
-Before changing anything, inspect the current ownership, permissions, and ACL status of the directory:
+Before you change anything, look at the owner, the permissions and the ACL of the directory:
 ```bash
 ls -ld /srv/data/atlas
 getfacl /srv/data/atlas
 ```
-*   `ls -ld`: Shows directory details rather than listing its contents. Note that the permission block (e.g. `drwxr-x---`) ends with a standard dot or space, indicating no ACL is active yet.
-*   `getfacl`: Displays the active file access control list. Currently, it should map exactly to standard user/group/other file modes.
+*   `ls -ld` shows the directory itself, not its contents. The permission string (for example `drwxr-x---`) has no `+` at the end yet, so no ACL is set.
+*   `getfacl` prints the full access list. Right now it only repeats the standard owner, group and other permissions.
 
 ### Step 2: Grant vendor-lee read-write access
-We want `vendor-lee` to have read, write, and execute permissions on `/srv/data/atlas` and everything already inside it.
+Give `vendor-lee` read, write and pass-through (execute) on `/srv/data/atlas` and everything already inside it:
 ```bash
 sudo setfacl -R -m u:vendor-lee:rwx /srv/data/atlas
 ```
-*   `setfacl`: The utility to modify ACLs.
-*   `-R`: The **recursive** flag. This ensures that the permission is applied to `/srv/data/atlas` and all files and subdirectories already existing inside it.
-*   `-m`: The **modify** flag, used to add or update an ACL entry.
-*   `u:vendor-lee:rwx`: Defines the subject as a user (`u`), names the user (`vendor-lee`), and sets the level of access (`rwx`).
-*   **Why `x` (execute) is required on directories:** In Linux, you must have execute permissions on a directory to pass through it or list its contents. If you only gave `rw-`, `vendor-lee` would not be able to navigate into the directory!
+*   `setfacl` is the tool that sets ACL entries.
+*   `-R` (recursive) applies the entry to `/srv/data/atlas` and every file and subdirectory already inside it.
+*   `-m` (modify) adds or updates an entry.
+*   `u:vendor-lee:rwx` means: a user (`u`), named `vendor-lee`, with `rwx`.
+*   **Why `x` on directories:** a user needs execute permission on a directory to enter it or reach the files inside. With only `rw-`, `vendor-lee` could not get into the directory.
 
 ### Step 3: Grant qa-nina read-only access
-We want `qa-nina` to have read and execute permissions recursively on the current folder tree.
+Give `qa-nina` read and pass-through on the whole existing tree, without write:
 ```bash
 sudo setfacl -R -m u:qa-nina:rx /srv/data/atlas
 ```
-*   `u:qa-nina:rx`: Grants read and traverse access without allowing files to be written or modified.
+*   `u:qa-nina:rx` grants read and pass-through. Without `w`, she cannot change files or create new ones.
 
 ### Step 4: Configure automatic default inheritance
-Steps 2 and 3 apply to files that *already exist*. If a user creates a new file tomorrow, standard ACLs will not apply to it. To fix this, we must set **default ACLs** on the parent directory.
+Steps 2 and 3 only cover files that *already exist*. A file someone creates tomorrow would not get the entries. **Default ACLs** on the directory fix that:
 ```bash
 sudo setfacl -d -m u:vendor-lee:rwx /srv/data/atlas
 sudo setfacl -d -m u:qa-nina:rx /srv/data/atlas
 ```
-*   `-d`: The **default** flag. It tells the kernel: "When any user creates a new file or directory inside `/srv/data/atlas`, copy these exact ACLs onto that new item automatically at creation time."
+*   `-d` (default) sets a default entry. Whenever anyone creates a file or directory inside `/srv/data/atlas`, the kernel copies these entries onto the new item at the moment it is created.
 
 ### Step 5: Verify the ACL changes
 ```bash
 ls -ld /srv/data/atlas
 ```
-*   **What to look for:** You should see a trailing `+` character at the end of the permission block (e.g., `drwxr-x---+`). The `+` sign is the kernel's way of telling you that extended ACL permissions are active on this directory.
+*   **What to look for:** a `+` at the end of the permission string (for example `drwxrwx---+`). The `+` tells you that extended ACL entries are set. With an ACL, the middle three letters show the ACL mask, not the group's own bits.
 
-View the full list of active and default rules:
+Read every access and default entry:
 ```bash
 getfacl /srv/data/atlas
 ```
@@ -58,50 +58,54 @@ getfacl /srv/data/atlas
 
 ## Part 2: Proper hard nproc limit for derek
 
-A previous admin attempted to enforce a process limit (`nproc`) on user `derek` by adding a line in their personal `.bashrc` profile. This is bad practice:
-1.  `.bashrc` is only executed for interactive bash shells. Non-interactive or other shell sessions bypass it.
-2.  It set only a **soft** limit. Soft limits are advisory and can be raised by the user at will. We want to configure a PAM-enforced **hard** limit (which only root can increase).
+A previous administrator tried to limit the number of processes (`nproc`) for `derek` with a line in his personal `.bashrc`. That is a weak fix, for two reasons:
+1.  `.bashrc` only runs for interactive bash shells. Non-interactive sessions skip it.
+2.  It sets only a **soft** limit, which the user can raise whenever he likes. You want a **hard** limit, enforced by PAM, that only `root` can raise.
 
 ### Step 1: Discover derek's current soft limit value
-Inspect derek's `.bashrc` file to find where the `ulimit` was written:
+Look at the line in derek's `.bashrc`:
 ```bash
 sudo grep -n ulimit /home/derek/.bashrc
 ```
-Let's query the system directly to find the exact numerical soft limit currently applied to derek's environment:
+The number at the end of the `ulimit -Sp` line (for example, `120`) is the value the task asks you to keep, and the grader compares your hard limit with it.
+
+You may also see this check, which reads the value from a login shell:
 ```bash
 sudo -u derek -i ulimit -Sp
 ```
-*   `sudo -u derek -i`: Opens an interactive login session as `derek`, ensuring `.bashrc` is fully sourced.
-*   `ulimit -Sp`: Displays the active **soft** (`-S`) process limit (`-p` / `nproc`). Note down this number (for example, `150`).
+*   `sudo -u derek -i` opens an interactive login shell as `derek`, so his `.bashrc` is read.
+*   `ulimit -Sp` asks for a **soft** (`-S`) value.
+
+Be careful with this one. In bash, the `-p` option of `ulimit` is the pipe size, not the process limit; the process limit is `-u` (`ulimit -Su`). So this command does not print the process limit, and the planted `ulimit -Sp` line never set one. Take the number from the `.bashrc` line itself.
 
 ### Step 2: Enforce the hard limit via PAM
-Rather than modifying `/etc/security/limits.conf` directly, we will write a custom configuration inside `/etc/security/limits.d/`. This keeps our customizations modular and isolated.
+Do not edit the big `/etc/security/limits.conf` file. Write your own drop-in file in `/etc/security/limits.d/`, which keeps the change separate and easy to review.
 
-Create and open the limit configuration file:
+Create and open the drop-in file:
 ```bash
 sudo vi /etc/security/limits.d/derek-nproc.conf
 ```
-Add the following line (replace `<value-from-step-1>` with the actual number you found, like `150`):
+Add this line (replace `<value-from-step-1>` with the number you found in Step 1):
 ```text
 derek hard nproc <value-from-step-1>
 ```
-Let's break down this syntax:
-*   `derek`: The target user account.
-*   `hard`: Sets a hard limit that cannot be bypassed by the user.
-*   `nproc`: Specifies the maximum number of processes the user can run.
+Here is what each column means:
+*   `derek`: the user the line applies to.
+*   `hard`: a hard limit, which the user cannot raise.
+*   `nproc`: the maximum number of processes the user may run at once.
 
 ### Step 3: Remove the old .bashrc hack
-Since PAM now handles limits securely at session startup, remove the old line from derek's `.bashrc` file to clean up:
+PAM now applies the limit at every session start, so remove the old line from derek's `.bashrc`:
 ```bash
 sudo sed -i '/ulimit -Sp/d' /home/derek/.bashrc
 ```
-*   `sed -i '/pattern/d'`: Searches for the line containing `ulimit -Sp` and deletes (`d`) it in-place (`-i`).
+*   `sed -i '/pattern/d'` finds every line that contains `ulimit -Sp` and deletes (`d`) it in place (`-i`).
 
 ---
 
 ## Part 3: supportstaff maxlogins
 
-We want to restrict every individual member of the `supportstaff` group to a maximum of `1` active login session at any time.
+Every member of `supportstaff` may have at most `1` login session at a time. The limit is read by the PAM module `pam_limits.so`, which Ubuntu switches on out of the box (`grep -n pam_limits /etc/pam.d/common-session` shows its line).
 
 ### Step 1: Verify the group exists
 ```bash
@@ -109,24 +113,24 @@ getent group supportstaff
 ```
 
 ### Step 2: Write the limit rule
-Create a dedicated configuration drop-in file:
+Create a separate drop-in file:
 ```bash
 sudo vi /etc/security/limits.d/supportstaff-maxlogins.conf
 ```
-Add the following rule:
+Add this line:
 ```text
 @supportstaff hard maxlogins 1
 ```
-Let's break down this syntax:
-*   `@supportstaff`: The `@` symbol tells PAM that the target is a **group** instead of a single user account.
-*   `hard`: Enforces a strict, unbypassable hard ceiling.
-*   `maxlogins`: Restricts the maximum number of concurrent login sessions.
+Here is what each column means:
+*   `@supportstaff`: the `@` tells PAM that the target is a **group**, not a single user.
+*   `hard`: a hard ceiling the members cannot raise.
+*   `maxlogins`: the maximum number of login sessions open at the same time.
 
 ---
 
-## Verification
+## Check your work
 
-Confirm your configurations are correct before concluding the lab:
+Check every change before you send the lab for grading:
 
 ```bash
 # Test ACL access permissions
@@ -143,4 +147,10 @@ sudo grep ulimit /home/derek/.bashrc   # Expect no output (confirming deletion)
 
 # Verify supportstaff maxlogins rule is defined
 sudo grep maxlogins /etc/security/limits.d/supportstaff-maxlogins.conf
+```
+
+From your own computer, not the lab machine, send the lab for grading:
+
+```bash
+astrona submit -c labs/lab-020
 ```

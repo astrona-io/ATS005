@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-023"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-023-setup"
+      description: "Creates the running service ledger-sync with no limits and the user dana with UID 2010"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-service-limit"
+      description: "Confirms ledger-sync is running with LimitNOFILE=4096 in its unit and on the running process"
+      type: "file"
+      source: "validation/validate-service-limit.sh"
+
+    - name: "verify-user-slice-limit"
+      description: "Confirms user-2010.slice has TasksMax=100 and that the setting is saved in a drop-in file"
+      type: "file"
+      source: "validation/validate-slice-limit.sh"
+
+teardown:
+  keepCluster: false

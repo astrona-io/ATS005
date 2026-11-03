@@ -17,7 +17,7 @@ By completing this section, you will acquire three tightly-coupled administrativ
 
 ## The Learning & Lab Path
 
-This section is divided into three focused modules, each paired with a dedicated hands-on virtual sandbox practice lab, and concluded with a comprehensive Capstone Integration Challenge. Every lab in this section runs on a single QEMU VM — the "directory server" and the "directory client" are the same machine, reached over `127.0.0.1`/`localhost`, so you can observe both sides of every bind and search in one place.
+This section is divided into four focused modules, each paired with a dedicated hands-on virtual sandbox practice lab, and concluded with a comprehensive Capstone Integration Challenge. Every lab in this section runs on a single QEMU VM — the "directory server" and the "directory client" are the same machine, reached over `127.0.0.1`/`localhost`, so you can observe both sides of every bind and search in one place.
 
 ### 1. LDAP Server Installation & TLS
 *   **Module Reader:** **[Module 1: LDAP Server Installation & TLS](./module-01/course.md)**
@@ -46,7 +46,17 @@ This section is divided into three focused modules, each paired with a dedicated
     ```
 *   **Hands-on Objective:** Configure `sssd.conf` and `nsswitch.conf` to resolve and authenticate an LDAP-provided user against the directory server built in Modules 1-2, verifying NSS resolution before login while confirming local accounts remain unaffected.
 
-### 4. Section Capstone Challenge
+### 4. Home Directories For Directory Users
+
+* **Module reader:** **[Home Directories For Directory Users](./module-04/course.md)**
+* **Practice lab:** **`labs/lab-044`**
+* **Lab run command:**
+    ```bash
+    astrona run --git ssh://git@github.com/astrona-io/ATS005.git -c labs/lab-044
+    ```
+* **Hands-on goal:** switch on home creation with `pam-auth-update --enable mkhomedir`, add a starter file to `/etc/skel`, and prove that a brand new directory user gets a stocked home on first login.
+
+### 5. Section Capstone Challenge
 *   **Comprehensive Challenge:** **`labs/lab-040` (Centralized Identity with LDAP Capstone)**
 *   **Lab Run Command:**
     ```bash
@@ -60,4 +70,4 @@ This section is divided into three focused modules, each paired with a dedicated
 
 Test your theoretical knowledge and diagnostic reasoning before tackling the practical lab missions:
 
-*   **[Take the Section 040 Knowledge Check Quiz](./quiz.md)**
+*   **[Take the Section 040 Knowledge Check Quiz](./quiz.yaml)**

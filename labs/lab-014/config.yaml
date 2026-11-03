@@ -1,0 +1,39 @@
+metadata:
+  name: "ats-005-lab-014"
+  docs:
+    solution: "docs/solution.md"
+    question: "docs/question.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-{ARCH}"
+
+    cpus: 2
+    memoryMB: 2048
+    diskSizeGB: 15
+    display: false
+
+bootstrap:
+  init:
+    - name: "lab-014-setup"
+      description: "Creates the webops group with members anna and ben, plus the user cleo outside the group"
+      type: "folder"
+      source: "bootstrap/"
+
+validation:
+  scripts:
+    - name: "verify-dropin-file"
+      description: "Confirms /etc/sudoers.d/webops exists with owner root:root and mode 0440, defines the SERVICE_CMDS alias, and that every sudoers file passes visudo -c"
+      type: "file"
+      source: "validation/validate-dropin-file.sh"
+
+    - name: "verify-group-and-user-rules"
+      description: "Confirms webops members may run the two ssh service commands without a password, cleo may read the ssh journal only with a password, and nobody gets more"
+      type: "file"
+      source: "validation/validate-rules.sh"
+
+teardown:
+  keepCluster: false

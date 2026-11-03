@@ -1,0 +1,254 @@
+# Knowledge check for section 030. Listed in astrona.yaml as a `type: quiz` entry.
+schema_version: 1
+kind: question_bank
+id: ats005-030
+course_id: ATS005
+exam_code: LFCS
+status: draft
+provenance: Original practice material written for this course; not official exam questions.
+scope:
+  type: section
+  id: section-030
+  title: "Shell Environment & PATH"
+questions:
+
+  - id: ats005-030-q01
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Set a variable for every login and non-login shell through the right file"
+    source_readings:
+      - sections/section-030/module-01/course-01-the-ship-wide-notice-board.md
+    prompt: |-
+      Your infrastructure team needs `COMPANY_PROXY=http://proxy.internal:3128` available to every user, for both login **and** non-login interactive shells, without editing any individual user's dotfiles. Which mechanism should you use?
+    options:
+      - id: a
+        text: "Add `export COMPANY_PROXY=\"http://proxy.internal:3128\"` to a new script under `/etc/profile.d/`."
+        explanation: "This option is incorrect because `/etc/profile.d/*.sh` scripts are only sourced by `/etc/profile`, which fires for **login shells only** — a non-login interactive shell (for example, a new terminal tab in an already-authenticated session) never reads it."
+      - id: b
+        text: "Add a plain `COMPANY_PROXY=http://proxy.internal:3128` line to `/etc/environment`."
+        explanation: "Correct. `/etc/environment` is parsed by `pam_env.so` at session establishment time, independent of which (if any) shell startup file later runs. That makes it the one mechanism that reaches both login and non-login interactive shells uniformly, system-wide, without touching a single per-user dotfile."
+      - id: c
+        text: "Add `export COMPANY_PROXY=\"http://proxy.internal:3128\"` to `/etc/bash.bashrc`."
+        explanation: "This option is incorrect because, while `/etc/bash.bashrc` does reach non-login interactive shells on some distributions, it is bash-specific and not the standard, documented, PAM-level mechanism the exam expects for a system-wide, shell-agnostic variable."
+      - id: d
+        text: "Add the variable to each existing user's `~/.bashrc` with a loop."
+        explanation: "This option is incorrect because it directly violates \"without editing any individual user's dotfiles,\" and doesn't apply to accounts created afterward."
+    correct_option: b
+    explanation: "`/etc/environment` is parsed by `pam_env.so` at session establishment time, independent of which (if any) shell startup file later runs. That makes it the one mechanism that reaches both login and non-login interactive shells uniformly, system-wide, without touching a single per-user dotfile."
+
+  - id: ats005-030-q02
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Explain how /etc/environment is parsed"
+    source_readings:
+      - sections/section-030/module-01/course-01-the-ship-wide-notice-board.md
+    prompt: |-
+      You write `export FOO=bar` as a line inside `/etc/environment` and expect it to behave like a normal shell export. What actually happens?
+    options:
+      - id: a
+        text: "It works exactly like `export` in a shell script, because `/etc/environment` is sourced by `/etc/profile`."
+        explanation: "This option is incorrect because `/etc/environment` is never sourced by `/etc/profile` — that's what `/etc/profile.d/*.sh` scripts are for, which is a distinct mechanism."
+      - id: b
+        text: "`/etc/environment` is parsed, not executed — it has no concept of `export`, so the line is not interpreted as a shell export statement at all."
+        explanation: "Correct. `/etc/environment` is read and parsed by the PAM module `pam_env.so`, not sourced by any shell. Its grammar is a bare `KEY=VALUE` (optionally quoted) pair per line — it has no `export` keyword, no `$VARNAME` expansion, and no command substitution. Writing `export FOO=bar` does not produce the expected variable; the line simply isn't parsed the way a real shell script would interpret it."
+      - id: c
+        text: "The system throws a fatal boot error because `/etc/environment` cannot contain the word `export`."
+        explanation: "This option is incorrect because there is no such fatal-error behavior; the line is simply parsed incorrectly, not rejected outright."
+      - id: d
+        text: "It works, but only for the root user's shell."
+        explanation: "This option is incorrect because `/etc/environment` is not scoped to any particular user in the first place."
+    correct_option: b
+    explanation: "`/etc/environment` is read and parsed by the PAM module `pam_env.so`, not sourced by any shell. Its grammar is a bare `KEY=VALUE` (optionally quoted) pair per line — it has no `export` keyword, no `$VARNAME` expansion, and no command substitution. Writing `export FOO=bar` does not produce the expected variable; the line simply isn't parsed the way a real shell script would interpret it."
+
+  - id: ats005-030-q03
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Explain which sessions never read login profile files"
+    source_readings:
+      - sections/section-030/module-01/course-04-cron-and-systemd.md
+    prompt: |-
+      A user sets `EDITOR=vim` in their own `~/.bash_profile` and confirms it works over a fresh SSH login. They then report that a cron job they scheduled for the same account doesn't seem to have `EDITOR` set at all. Why?
+    options:
+      - id: a
+        text: "Cron jobs run as root by default, so a personal user variable never applies."
+        explanation: "This option is incorrect because cron jobs run as whichever user's crontab they belong to, not root by default, and the reasoning about \"never applies\" is the wrong mechanism regardless."
+      - id: b
+        text: "Cron does not start a login shell and does not source `~/.bash_profile` — its own environment is minimal and independent of shell dotfiles entirely."
+        explanation: "Correct. Cron does not start a login shell and does not source `~/.bash_profile`, `~/.profile`, or any other shell startup file. Its environment is minimal and mostly hardcoded (`SHELL`, `PATH`, `HOME`, `LOGNAME` in most implementations). A cron job that genuinely needs `EDITOR` must have it set explicitly inside the crontab itself."
+      - id: c
+        text: "`EDITOR` must be set with `declare -x` instead of `export` to be visible to cron."
+        explanation: "This option is incorrect because `export` is the correct and sufficient way to mark a shell variable for child-process inheritance — the actual issue is that the file is never read at all in cron's context."
+      - id: d
+        text: "`~/.bash_profile` only applies to the first login of the day; subsequent sessions, including cron, don't re-read it."
+        explanation: "There's no such \"first login of the day\" behavior for dotfile sourcing."
+    correct_option: b
+    explanation: "Cron does not start a login shell and does not source `~/.bash_profile`, `~/.profile`, or any other shell startup file. Its environment is minimal and mostly hardcoded (`SHELL`, `PATH`, `HOME`, `LOGNAME` in most implementations). A cron job that genuinely needs `EDITOR` must have it set explicitly inside the crontab itself."
+
+  - id: ats005-030-q04
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Append a directory to PATH safely and save it in the right file"
+    source_readings:
+      - sections/section-030/module-02/course-02-appending-and-saving-path.md
+    prompt: |-
+      User `candidate` wants their personal `~/work` scripts directory added to `PATH` so their tools run by name, without risking that a file dropped into `~/work` could ever override an existing system command. Which change satisfies this?
+    options:
+      - id: a
+        text: "`export PATH=\"$HOME/work:$PATH\"` in `~/.bash_profile`."
+        explanation: "This option puts `~/work` first, so a file there with a system command's name would shadow the real command."
+      - id: b
+        text: "`export PATH=\"$PATH:$HOME/work\"` in `~/.bash_profile`."
+        explanation: "Correct. Appending `$HOME/work` after the existing `$PATH` means every current system directory is searched first. An existing command name is never shadowed, because the shell finds its real match earlier in the search order before it would ever reach `~/work`. Placing it in `~/.bash_profile` persists the change across fresh login shells and SSH sessions."
+      - id: c
+        text: "`export PATH=\"$HOME/work:$PATH\"` in `~/.bashrc`."
+        explanation: "This option has the same shadowing danger, and `~/.bashrc` is the non-login file, so login shells may miss it."
+      - id: d
+        text: "`alias work='cd ~/work'` in `~/.bash_profile`."
+        explanation: "This option doesn't add `~/work` to `PATH` at all; it just defines a navigation shortcut and does nothing for running tools by name."
+    correct_option: b
+    explanation: "Appending `$HOME/work` after the existing `$PATH` means every current system directory is searched first. An existing command name is never shadowed, because the shell finds its real match earlier in the search order before it would ever reach `~/work`. Placing it in `~/.bash_profile` persists the change across fresh login shells and SSH sessions."
+
+  - id: ats005-030-q05
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Clear the command-location cache after a PATH change"
+    source_readings:
+      - sections/section-030/module-02/course-03-the-command-location-cache.md
+    prompt: |-
+      Immediately after appending `~/work` to `PATH` and creating a decoy script named `ls` inside it, you run `type ls` in the same shell session and it still reports the real system `/bin/ls` — even before you've done anything else. What should you do before trusting that this proves the decoy is harmless?
+    options:
+      - id: a
+        text: "Nothing further is needed; the result already proves the ordering is correct."
+        explanation: "This option is incorrect because a cached result can mask the true behavior — the test isn't conclusive without clearing the hash table first."
+      - id: b
+        text: "Run `hash -r` to clear bash's cached command-location table, then re-run `type ls`, since a previously-resolved command can stay cached regardless of the current PATH order."
+        explanation: "Correct. Bash caches resolved command locations in a hash table the first time it looks one up, precisely to avoid rescanning `PATH` on every invocation. If `ls` was already resolved earlier in this same shell session, the cached entry can make `type`/`which` appear correct regardless of what a newly created earlier-in-PATH script would actually do on a fresh lookup. `hash -r` clears that cache, forcing a genuine re-search that reflects the real current PATH ordering."
+      - id: c
+        text: "Restart the entire virtual machine to force a PATH re-scan."
+        explanation: "This option is incorrect because a full VM restart is unnecessary; `hash -r` accomplishes the same re-scan for the current shell instantly."
+      - id: d
+        text: "Run `which -a ls` instead, since `which` is more authoritative than `type`."
+        explanation: "This option is incorrect because `which` does not understand bash's own hash cache or builtins/functions the way `type` does, and switching tools doesn't address the caching concern at all."
+    correct_option: b
+    explanation: "Bash caches resolved command locations in a hash table the first time it looks one up, precisely to avoid rescanning `PATH` on every invocation. If `ls` was already resolved earlier in this same shell session, the cached entry can make `type`/`which` appear correct regardless of what a newly created earlier-in-PATH script would actually do on a fresh lookup. `hash -r` clears that cache, forcing a genuine re-search that reflects the real current PATH ordering."
+
+  - id: ats005-030-q06
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Write a variable correctly in /etc/environment"
+    source_readings:
+      - sections/section-030/module-01/course-01-the-ship-wide-notice-board.md
+    prompt: |-
+      You add `export SHIP_NAME=odyssey` to `/etc/environment`. After a fresh login the variable is missing or wrong. What is the problem?
+    options:
+      - id: a
+        text: "The file is read as plain `NAME=value` lines and is not run as a script, so use `SHIP_NAME=odyssey` without `export`."
+        explanation: "Correct. `pam_env` parses this file. It does not run shell commands."
+      - id: b
+        text: "`/etc/environment` is read only by non-login shells."
+        explanation: "No. It is read by PAM when a session starts, for login and non-login shells."
+      - id: c
+        text: "Variables must be uppercase and at most five letters."
+        explanation: "No. There is no such rule."
+      - id: d
+        text: "The file needs mode `755` to be read."
+        explanation: "No. It only needs to be readable. It is not run."
+    correct_option: a
+    explanation: "`pam_env` parses this file. It does not run shell commands."
+
+  - id: ats005-030-q07
+    type: single_choice
+    difficulty: beginner
+    learning_objective: "Name the rule for scripts in /etc/profile.d"
+    source_readings:
+      - sections/section-030/module-01/course-02-login-scripts-in-profile-d.md
+    prompt: |-
+      A script `/etc/profile.d/team-region` exports `TEAM_REGION`, but no login shell sees it. The script is readable and correct. What is wrong?
+    options:
+      - id: a
+        text: "The name does not end in `.sh`, and `/etc/profile` only sources files that do."
+        explanation: "Correct. Rename it to `team-region.sh`."
+      - id: b
+        text: "Scripts in `profile.d` must be executable and owned by the user."
+        explanation: "No. They are sourced, so they only need to be readable."
+      - id: c
+        text: "`profile.d` is read only by cron."
+        explanation: "No. It is read by login shells."
+      - id: d
+        text: "`profile.d` scripts can only set `PATH`."
+        explanation: "No. They can export any variable."
+    correct_option: a
+    explanation: "Rename it to `team-region.sh`."
+
+  - id: ats005-030-q08
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Predict which login file Bash reads"
+    source_readings:
+      - sections/section-030/module-01/course-03-login-and-non-login-shells.md
+    prompt: |-
+      A user has an old `~/.profile` that adds a directory to `PATH`. You create a new `~/.bash_profile` with one personal variable. At the next login the old `PATH` change is gone. Why?
+    options:
+      - id: a
+        text: "A login shell reads only the first of `~/.bash_profile`, `~/.bash_login` and `~/.profile`, so `~/.profile` is no longer read."
+        explanation: "Correct. Add a line to source `~/.profile` from `~/.bash_profile`, or put both settings in one file."
+      - id: b
+        text: "Creating a file in the home folder resets `PATH` for the account."
+        explanation: "No. Nothing resets it. The file was not read."
+      - id: c
+        text: "`~/.bash_profile` is read only by non-login shells."
+        explanation: "No. It is a login-shell file."
+      - id: d
+        text: "`~/.profile` is deleted when `~/.bash_profile` is created."
+        explanation: "No. It still exists. It is just skipped."
+    correct_option: a
+    explanation: "Add a line to source `~/.profile` from `~/.bash_profile`, or put both settings in one file."
+
+  - id: ats005-030-q09
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Give a cron job its own environment"
+    source_readings:
+      - sections/section-030/module-01/course-04-cron-and-systemd.md
+    prompt: |-
+      A cron job needs `DEPLOY_ENV=staging`. You export it in `/etc/profile.d/deploy.sh`, but the job does not see it. What is the fix?
+    options:
+      - id: a
+        text: "Cron runs no login shell, so set the variable in the crontab itself, or in the script."
+        explanation: "Correct. A service unit has the same rule. Use `Environment=` or `EnvironmentFile=` there."
+      - id: b
+        text: "Reboot, so that cron reads `profile.d`."
+        explanation: "No. A reboot does not make cron start a login shell."
+      - id: c
+        text: "Make `deploy.sh` mode `777`."
+        explanation: "No. The mode is not the problem. Cron never sources the file."
+      - id: d
+        text: "Add `export` twice in the script."
+        explanation: "No. The script is not sourced at all."
+    correct_option: a
+    explanation: "A service unit has the same rule. Use `Environment=` or `EnvironmentFile=` there."
+
+  - id: ats005-030-q10
+    type: single_choice
+    difficulty: intermediate
+    learning_objective: "Explain why appending to PATH is safer"
+    source_readings:
+      - sections/section-030/module-02/course-01-how-the-shell-finds-a-command.md
+      - sections/section-030/module-02/course-02-appending-and-saving-path.md
+    prompt: |-
+      A user writes `export PATH="$HOME/work:$PATH"` and later drops a script named `ls` into `~/work`. What happens, and what avoids it?
+    options:
+      - id: a
+        text: "The script runs instead of the real `ls`, because the first match wins. Appending with `PATH=\"$PATH:$HOME/work\"` avoids it."
+        explanation: "Correct. A writable directory in front of `PATH` can shadow any system command."
+      - id: b
+        text: "The real `ls` always runs, because system commands cannot be shadowed."
+        explanation: "No. They can, which is the danger."
+      - id: c
+        text: "Both run, one after the other."
+        explanation: "No. The shell runs the first match only."
+      - id: d
+        text: "The shell reports an error because two commands share a name."
+        explanation: "No. It does not compare. It takes the first match."
+    correct_option: a
+    explanation: "A writable directory in front of `PATH` can shadow any system command."

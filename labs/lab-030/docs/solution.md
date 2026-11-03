@@ -1,25 +1,25 @@
 # Solution Walkthrough
 
-This guide explains how to configure environment variables with different system-wide and user-specific scopes, and how to safely extend the command search PATH without shadowing vital system utilities.
+This walkthrough sets one variable for every login shell with a `profile.d` script, one personal variable for `candidate`, and appends `~/bin` to `candidate`'s `PATH` so a decoy can never win. Run every command on the lab machine (`astrona ssh ats-005-lab-030`), as `root` until you switch to `candidate` (become `root` with `sudo -i`).
 
 ---
 
 ## Step 1: Set a system-wide variable for login shells
 
-We want `ONBOARD_PORTAL=https://portal.internal/onboarding` to be available system-wide for every user, but only when they log in (such as starting an SSH connection or console login session).
+`ONBOARD_PORTAL=https://portal.internal/onboarding` must be available to every user, but only when they log in (for example an SSH connection or a console login).
 
-The best tool for this is a script inside `/etc/profile.d/`. Scripts in `/etc/profile.d/` are sourced by `/etc/profile` when a login shell initializes. Since it is run by the shell interpreter, we can use standard shell scripting syntax (like `export`).
+The right tool is a script in `/etc/profile.d/`. `/etc/profile` sources every `.sh` file there when a login shell starts. Because the shell runs it, you can use normal shell syntax such as `export`.
 
-Create the drop-in script:
+Save this as `/etc/profile.d/onboard.sh`:
+
 ```bash
-sudo tee /etc/profile.d/onboard.sh > /dev/null <<'EOF'
 export ONBOARD_PORTAL="https://portal.internal/onboarding"
-EOF
 ```
-*   `sudo tee`: Writes to a file requiring root privileges while discarding the standard output redirect (`> /dev/null`).
-*   `export`: In Linux, variables are local to the current shell unless they are exported. The `export` keyword marks the variable, making it available to any subprocesses or programs launched by that shell session.
 
-Set read permissions so all users can source the script at login:
+*   `export`: a shell variable stays inside the current shell unless it is exported. `export` makes it available to every program that shell starts.
+
+Apply it, by giving every user permission to read the script at login:
+
 ```bash
 sudo chmod 644 /etc/profile.d/onboard.sh
 ```
@@ -28,89 +28,110 @@ sudo chmod 644 /etc/profile.d/onboard.sh
 
 ## Step 2: Set a personal editor for candidate only
 
-We want `EDITOR=nano` to apply only to the `candidate` user account, without modifying the environment for root or other users.
+`EDITOR=nano` must apply only to `candidate`, without changing the environment of `root` or any other user.
 
-Login to the `candidate` user shell:
+Log in as `candidate`:
+
 ```bash
 su - candidate
 ```
-*   `su -`: The hyphen (`-`) is **critical**. It tells the system to start a clean, genuine **login shell** for the user, fully loading their profile files and environment variables. Without the hyphen, you would switch users but inherit your previous environment!
 
-We will append this environment variable to `candidate`'s personal `~/.bash_profile`:
+*   `su -`: the hyphen (`-`) is **critical**. It starts a real **login shell** for the user, which loads their profile files and environment. Without it, you would switch users but keep your previous environment.
+
+Append the variable to `candidate`'s personal `~/.bash_profile`:
+
 ```bash
 echo 'export EDITOR=nano' >> ~/.bash_profile
 ```
-*   `>>`: The double redirect **appends** the line to the end of the file.
-*   **Warning:** Never use a single redirect (`>`), as it will instantly overwrite and wipe out the entire file!
 
-Reload the profile dynamically into the current active session:
+*   `>>` **appends** the line to the end of the file.
+*   **Warning:** never use a single `>`. It overwrites the whole file.
+
+Load the profile into your current shell:
+
 ```bash
 source ~/.bash_profile
 ```
-*   `source` (or the shortcut `.`): Sources and executes the profile script in the current active shell process, updating the environment immediately without requiring you to log out and back in.
+
+*   `source` (or its short form `.`) runs the profile inside the current shell, so the change applies straight away without logging out.
 
 ---
 
 ## Step 3: Append ~/bin to candidate's PATH safely
 
-The `PATH` environment variable is a colon-separated list of directories where the system looks for executable commands when you type them.
+`PATH` is the list of directories, separated by colons, that the shell searches for a command when you type its name.
 
 ```bash
 echo 'export PATH="$PATH:$HOME/bin"' >> ~/.bash_profile
 source ~/.bash_profile
 ```
-Let's analyze the syntax:
-*   `PATH="$PATH:$HOME/bin"`: This **appends** candidate's personal tool path (`$HOME/bin`) to the *end* of the existing `$PATH`.
-*   **Why appending is critical (No Shadowing):** Linux searches directories listed in `PATH` from left to right. By placing the system directories (`$PATH`) *before* the personal directory (`$HOME/bin`), standard system utilities (such as `ls` or `id`) will always be found and run first. If you prepended your directory (e.g. `export PATH="$HOME/bin:$PATH"`), anyone who drops a script named `ls` or `id` into `~/bin` would hijack that command, posing a major security and system stability risk!
 
-Test that candidate's custom tool now runs:
+Here is what the line does:
+
+*   `PATH="$PATH:$HOME/bin"` puts `$HOME/bin` at the *end* of the existing `PATH`.
+*   **Why appending matters (no shadowing):** the shell searches `PATH` from left to right. With the system directories (`$PATH`) *before* `$HOME/bin`, real commands such as `ls` or `id` are always found first. If you put your directory first (for example `export PATH="$HOME/bin:$PATH"`), anyone who drops a script named `ls` or `id` into `~/bin` would take over that command.
+*   **Why `~/.bash_profile` and not `~/.profile`:** a login shell reads only the first of `~/.bash_profile`, `~/.bash_login` and `~/.profile` that exists. The stock Ubuntu `~/.profile` also contains a block that puts `~/bin` at the *front* of `PATH` when that directory exists, so a line in `~/.profile` alone could leave `~/bin` before `/usr/bin`. Once `~/.bash_profile` exists, `~/.profile` is no longer read by a login shell.
+
+Check that `candidate`'s tool now runs by name:
+
 ```bash
 deploy-helper
 ```
 
 ---
 
-## Step 4: Prove path shadowing prevention
+## Step 4: Prove a decoy cannot shadow the real command
 
-We want to prove that if a decoy script named `id` is placed inside `~/bin`, the system will ignore it and continue running the safe `/usr/bin/id` system command.
+Now prove that a decoy script named `id` in `~/bin` is ignored, and the real `/usr/bin/id` still runs.
 
-Create a decoy script:
+Save this as `~/bin/id`:
+
 ```bash
-cat > ~/bin/id << 'EOF'
 #!/bin/bash
 echo "decoy id - should never run"
-EOF
+```
+
+Make it executable:
+
+```bash
 chmod +x ~/bin/id
 ```
 
-Clear the shell's command resolution cache:
+Clear the shell's memory of command locations:
+
 ```bash
 hash -r
 ```
-*   `hash -r`: Bash caches the absolute paths of previously executed commands to save search time. If you alter the `PATH` variable or add files, you must run `hash -r` to clear this lookup cache and force Bash to perform a fresh filesystem search.
 
-Query how the command is resolved:
+*   `hash -r`: bash remembers where it found each command, to save searching. After you change `PATH` or add files, run `hash -r` so bash searches again.
+
+Ask how `id` resolves now:
+
 ```bash
 type id
 ```
-*   **Expected Output:** `id is /usr/bin/id` (or `/bin/id`). This confirms the system resolved the command to the safe, standard location.
 
-Run the command to ensure the system is secure:
+*   **Expected Output:** `id is /usr/bin/id` (or `/bin/id`). The shell resolved the command to the real location.
+
+Run it:
+
 ```bash
 id
 ```
-The standard user identification output should print, rather than the decoy's message.
 
-Clean up the decoy script to restore a pristine state:
+You should see the normal user identity output, not the decoy's message.
+
+Remove the decoy:
+
 ```bash
 rm ~/bin/id
 ```
 
 ---
 
-## Verification
+## Step 5: Check your work
 
-Verify that all three parts are configured correctly before completing the lab:
+Check all three changes before you send the lab for grading:
 
 ```bash
 # Verify system-wide variable and personal variable
@@ -126,4 +147,9 @@ su - candidate -c 'echo $PATH | tr ":" "\n"'
 # Verify helper tool runs
 su - candidate -c 'deploy-helper'
 ```
-Once verified, run the local validation suite to pass the lab!
+
+From your own computer, not the lab machine, send the lab for grading:
+
+```bash
+astrona submit -c labs/lab-030
+```

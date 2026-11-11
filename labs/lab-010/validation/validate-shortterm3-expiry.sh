@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms shortterm3's account is set to fully expire in ~14 days
 set -u
 
@@ -23,3 +25,4 @@ fi
 
 echo "PASS: shortterm3's account expires in $delta day(s), matching the required ~14-day expiration."
 exit 0
+ASTRONA_STUDENT_SCRIPT

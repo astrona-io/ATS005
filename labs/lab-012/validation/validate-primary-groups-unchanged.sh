@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms marta and cilla's primary group is still staff (unchanged by the datateam addition)
 set -u
 
@@ -12,3 +14,4 @@ done
 
 echo "PASS: marta and cilla's primary group is still staff."
 exit 0
+ASTRONA_STUDENT_SCRIPT

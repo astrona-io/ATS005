@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Plants a same-named decoy script in ~/work and confirms it never wins over
 # the real system command, proving PATH was appended rather than prepended.
 
@@ -17,7 +19,7 @@ EOF
 chmod +x "$decoy"
 chown candidate:candidate "$decoy"
 
-resolved=$(su - candidate -c 'hash -r; type -P ls' 2>/dev/null || true)
+resolved=$(sudo su - candidate -c 'hash -r; type -P ls' 2>/dev/null || true)
 
 if [[ -z "$resolved" ]]; then
   echo "FAIL: no-shadowing - could not resolve 'ls' at all for candidate"
@@ -29,7 +31,7 @@ if [[ "$resolved" == "/home/candidate/work/ls" ]]; then
   exit 1
 fi
 
-output=$(su - candidate -c 'hash -r; ls /home/candidate/work' 2>/dev/null || true)
+output=$(sudo su - candidate -c 'hash -r; ls /home/candidate/work' 2>/dev/null || true)
 if echo "$output" | grep -q 'decoy ls'; then
   echo "FAIL: no-shadowing - running 'ls' actually executed the decoy script instead of the real binary"
   exit 1
@@ -37,3 +39,4 @@ fi
 
 echo "PASS: real system 'ls' still resolves first; ~/work does not shadow existing commands"
 exit 0
+ASTRONA_STUDENT_SCRIPT

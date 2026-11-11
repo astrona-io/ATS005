@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms ~/work was appended (not prepended) to candidate's PATH, persisted
 # in a login-shell dotfile so it survives a fresh session.
 
 set -u
 
-effective_path=$(su - candidate -c 'echo $PATH' 2>/dev/null || true)
+effective_path=$(sudo su - candidate -c 'echo $PATH' 2>/dev/null || true)
 
 if [[ -z "$effective_path" ]]; then
   echo "FAIL: PATH extension - could not read candidate's effective PATH from a fresh login shell"
@@ -40,10 +42,11 @@ if [[ "$work_index" -lt "$usrbin_index" ]]; then
   exit 1
 fi
 
-if ! su - candidate -c 'command -v helper-tool' >/dev/null 2>&1; then
+if ! sudo su - candidate -c 'command -v helper-tool' >/dev/null 2>&1; then
   echo "FAIL: PATH extension - helper-tool in ~/work is not runnable by name from a fresh login shell"
   exit 1
 fi
 
 echo "PASS: ~/work is appended after standard system directories in candidate's persisted PATH"
 exit 0
+ASTRONA_STUDENT_SCRIPT

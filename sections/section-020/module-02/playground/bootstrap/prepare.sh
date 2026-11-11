@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — PAM Resource Limits & Concurrent Logins
 # Runs once when the environment comes up. Seeds a user whose process limit was
 # "fixed" with a .bashrc ulimit line, an operators group, and a long-running
@@ -31,3 +33,4 @@ systemd-run --quiet --unit=jackie-sleeper --uid=jackie /bin/sleep infinity 2>/de
 # pam_limits.so ships enabled in /etc/pam.d/common-session on this image —
 # left as-is so the reading can grep for it.
 echo "[playground] ready. Try:  sudo -u jackie -i ulimit -Su   grep pam_limits /etc/pam.d/common-session"
+ASTRONA_STUDENT_SCRIPT

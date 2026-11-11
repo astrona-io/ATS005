@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms datateam exists with GID 5000 and marta+cilla as members
 set -u
 
@@ -24,3 +26,4 @@ done
 
 echo "PASS: datateam exists with GID 5000 and marta+cilla as members."
 exit 0
+ASTRONA_STUDENT_SCRIPT

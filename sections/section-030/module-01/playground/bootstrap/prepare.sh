@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — System-Wide & Personal Environment Profiles
 # Runs once when the environment comes up. Seeds two ordinary users, a cron job
 # that records its own environment, and a systemd probe unit that records its
@@ -35,3 +37,4 @@ systemctl start env-probe.service 2>/dev/null || true
 # /etc/environment, /etc/profile.d/, and every dotfile are left pristine for
 # the reader to edit.
 echo "[playground] ready. Try:  cat /etc/environment   su - candidate -c 'echo \$PATH'   cat /home/candidate/cron-env.txt"
+ASTRONA_STUDENT_SCRIPT

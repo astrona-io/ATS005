@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms ONBOARD_PORTAL is exported system-wide for login shells via a
 # real /etc/profile.d/ script (not /etc/environment, not a per-user dotfile).
 
@@ -15,7 +17,7 @@ if ! grep -h 'ONBOARD_PORTAL' /etc/profile.d/*.sh 2>/dev/null | grep -q 'export'
   exit 1
 fi
 
-value=$(su - candidate -c 'echo $ONBOARD_PORTAL' 2>/dev/null || true)
+value=$(sudo su - candidate -c 'echo $ONBOARD_PORTAL' 2>/dev/null || true)
 if [[ "$value" != "https://portal.internal/onboarding" ]]; then
   echo "FAIL: onboard portal - not visible or wrong value in a fresh login session (got '$value')"
   exit 1
@@ -23,3 +25,4 @@ fi
 
 echo "PASS: ONBOARD_PORTAL correctly set system-wide via /etc/profile.d/ for login shells"
 exit 0
+ASTRONA_STUDENT_SCRIPT

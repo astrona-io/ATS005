@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Starting state for lab-044: a populated TLS LDAP server, a wired sssd client,
 # users lfcsuser and newcomer, no home folders and pam_mkhomedir off.
 # Enabling mkhomedir and the starter file are the graded task.
+sudo -n bash <<'BOOTSTRAP_ROOT'
 set -eu
 
 export DEBIAN_FRONTEND=noninteractive
@@ -147,3 +150,5 @@ sed -i '/pam_mkhomedir/d' /etc/pam.d/common-session
 
 echo "Bootstrap complete: sssd wired, users resolve, no mkhomedir."
 exit 0
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

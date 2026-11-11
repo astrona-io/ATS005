@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Starting state for lab-014: group webops with members anna and ben, and the
 # user cleo outside the group. No sudo rules are written; that is the task.
 set -eu
@@ -11,3 +13,4 @@ usermod -aG webops anna
 usermod -aG webops ben
 
 exit 0
+ASTRONA_STUDENT_SCRIPT

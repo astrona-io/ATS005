@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — LDAP Directory Population & TLS Bind Verification
 # Runs once when the environment comes up. Reproduces Module 1's finished state:
 # a TLS-secured OpenLDAP server serving dc=example,dc=com, admin
@@ -63,3 +65,4 @@ systemctl restart slapd
 rm -f /tmp/pg-suffix.ldif /tmp/pg-tls.ldif
 echo "[playground] ready. TLS LDAP server for dc=example,dc=com is up and EMPTY."
 echo "  Try:  ldapsearch -x -ZZ -H ldap://127.0.0.1 -b dc=example,dc=com -LLL"
+ASTRONA_STUDENT_SCRIPT

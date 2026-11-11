@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — LDAP Server Installation & TLS
 # Runs once when the environment comes up. Installs the OpenLDAP server and
 # client tools and pre-generates a self-signed TLS certificate + key (owned by
@@ -30,3 +32,4 @@ systemctl enable --now slapd >/dev/null 2>&1 || true
 
 echo "[playground] ready. slapd is up on :389 with default config; cert/key at /etc/ldap/certs/."
 echo "  Try:  sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config -LLL dn"
+ASTRONA_STUDENT_SCRIPT

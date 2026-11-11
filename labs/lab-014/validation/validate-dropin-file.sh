@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Read protected sudoers files with administrative privileges.
+sudo -H bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms /etc/sudoers.d/webops exists with the right owner and mode, defines
 # the SERVICE_CMDS alias, and that every sudoers file passes visudo -c.
 
@@ -36,3 +38,4 @@ fi
 
 echo "PASS: webops drop-in has the right owner, mode and alias, and visudo -c is clean"
 exit 0
+ASTRONA_STUDENT_SCRIPT

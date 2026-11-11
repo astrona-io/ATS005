@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Prepares contractor3 (active) and contractor1 (offboarded, with a home dir marker) for lab-013
 set -eu
 
@@ -15,3 +17,4 @@ sudo chown contractor1:contractor1 /home/contractor1/offboard-notes.txt
 
 echo "Ready for account lifecycle lab."
 exit 0
+ASTRONA_STUDENT_SCRIPT

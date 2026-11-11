@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 set -eu
 
 if ! command -v setfacl >/dev/null 2>&1; then
@@ -23,3 +25,4 @@ sudo chown -R team-lead:orion-team /srv/projects/orion
 sudo chmod -R 750 /srv/projects/orion
 
 exit 0
+ASTRONA_STUDENT_SCRIPT

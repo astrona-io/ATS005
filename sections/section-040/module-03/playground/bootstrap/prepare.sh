@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — LDAP Client Integration with SSSD
 # Runs once when the environment comes up. Reproduces Modules 1-2's finished
 # state: a TLS-secured OpenLDAP server for dc=example,dc=com, populated with
@@ -97,3 +99,4 @@ rm -f /etc/sssd/sssd.conf
 rm -f /tmp/pg-cfg.ldif /tmp/pg-data.ldif
 echo "[playground] ready. Populated TLS LDAP server up; sssd installed but UNCONFIGURED."
 echo "  Try:  getent passwd lfcsuser   (nothing yet — no sssd.conf, no 'sss' in nsswitch)"
+ASTRONA_STUDENT_SCRIPT

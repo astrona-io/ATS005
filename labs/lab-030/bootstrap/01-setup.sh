@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 set -eu
 
 if ! id "candidate" >/dev/null 2>&1; then
@@ -21,3 +23,4 @@ sudo sed -i '/EDITOR=/d;/PATH=/d' "/home/candidate/.profile" 2>/dev/null || true
 
 echo "Ready for the shell environment and PATH capstone lab."
 exit 0
+ASTRONA_STUDENT_SCRIPT

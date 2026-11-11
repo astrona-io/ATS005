@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms named ACL entries for vendor-lee (rwx) and qa-nina (r-x) exist on
 # /srv/data/atlas and pre-existing content/ownership are intact
 
@@ -46,3 +48,4 @@ done
 
 echo "PASS: vendor-lee (rwx) and qa-nina (r-x) ACL entries are correctly applied, owner/group unchanged"
 exit 0
+ASTRONA_STUDENT_SCRIPT

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms ledger-sync runs with an open-file limit of 4096, in the unit and on
 # the real process.
 
@@ -34,3 +36,4 @@ fi
 
 echo "PASS: ledger-sync runs with 4096 open files in its unit and on the running process"
 exit 0
+ASTRONA_STUDENT_SCRIPT

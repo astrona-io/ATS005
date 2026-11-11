@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms the ACLs were restored from the backup and temp-vendor was removed.
 set -u
 
@@ -53,3 +55,4 @@ done
 
 echo "PASS: ACLs restored, temp-vendor removed, owners unchanged"
 exit 0
+ASTRONA_STUDENT_SCRIPT

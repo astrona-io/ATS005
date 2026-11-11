@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — POSIX Access Control Lists
 # Runs once when the environment comes up. Seeds a shared project tree owned by
 # a team lead and a group, plus two users who are NOT in that group, so you can
@@ -26,3 +28,4 @@ chmod 640 /srv/projects/orion/README.md /srv/projects/orion/docs/spec.md
 
 # ext4/xfs on this image carry ACL support by default — nothing to enable.
 echo "[playground] ready. Try:  getfacl /srv/projects/orion   setfacl -R -m u:contractor-jane:rwx /srv/projects/orion"
+ASTRONA_STUDENT_SCRIPT

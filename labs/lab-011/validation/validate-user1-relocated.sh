@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms user1's primary group is dev, home is /home/accounts/user1, and files actually moved
 set -u
 
@@ -26,3 +28,4 @@ fi
 
 echo "PASS: user1 has primary group dev, home /home/accounts/user1, and files were moved."
 exit 0
+ASTRONA_STUDENT_SCRIPT

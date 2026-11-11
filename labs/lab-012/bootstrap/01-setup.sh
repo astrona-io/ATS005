@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Prepares marta/cilla, legacy-ops, and temp-audit for lab-012
 set -eu
 
@@ -23,3 +25,4 @@ sudo groupadd -f temp-audit
 
 echo "Ready for group lifecycle management lab."
 exit 0
+ASTRONA_STUDENT_SCRIPT

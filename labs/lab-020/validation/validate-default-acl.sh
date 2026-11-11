@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms default ACL entries exist on /srv/data/atlas and that a brand-new
 # file created under it automatically inherits both named entries
 
@@ -39,3 +41,4 @@ fi
 
 echo "PASS: default ACL entries present and correctly inherited by a newly created file"
 exit 0
+ASTRONA_STUDENT_SCRIPT

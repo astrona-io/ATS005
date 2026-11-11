@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — Extending PATH Safely
 # Runs once when the environment comes up. Seeds a user with a personal scripts
 # directory holding a genuinely new tool, so the reader can practise appending
@@ -22,3 +24,4 @@ chown candidate:candidate /home/candidate/work/helper-tool
 # candidate's dotfiles are left as the distro defaults — the reader adds the
 # PATH line themselves. No decoy is planted; the reader creates one to test.
 echo "[playground] ready. Try:  su - candidate -c 'echo \$PATH'   su - candidate -c 'type helper-tool'"
+ASTRONA_STUDENT_SCRIPT

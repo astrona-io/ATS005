@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — Group Lifecycle Management
 # Runs once when the environment comes up. Seeds sample users and groups so you
 # can practise creating a group with a pinned GID, adding members without
@@ -32,3 +34,4 @@ getent group temp-audit >/dev/null || groupadd -g 4300 temp-audit
 
 # GID 5000 is intentionally left FREE for the pinned-GID exercise.
 echo "[playground] ready. Try:  getent group legacy-ops   id marta   groupadd -g 5000 datateam"
+ASTRONA_STUDENT_SCRIPT

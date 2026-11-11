@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Adds a brand new directory user at grading time, runs a login as that user,
 # and checks the home that the login created.
 set -u
@@ -43,7 +45,7 @@ fi
 
 rm -rf "/home/$PROBE"
 
-su - "$PROBE" -c true >/dev/null 2>&1
+sudo su - "$PROBE" -c true >/dev/null 2>&1
 
 if [ ! -d "/home/$PROBE" ]; then
   echo "FAIL: a first login did not create /home/$PROBE"
@@ -68,3 +70,4 @@ fi
 
 echo "PASS: a first login created a stocked home owned by the new user"
 exit 0
+ASTRONA_STUDENT_SCRIPT

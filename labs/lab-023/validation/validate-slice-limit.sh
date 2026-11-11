@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms the slice of UID 2010 has TasksMax=100 and that the setting is saved
 # in a drop-in file (not only set for the current boot).
 
@@ -26,3 +28,4 @@ fi
 
 echo "PASS: $SLICE has TasksMax=100 and the setting is saved in a drop-in"
 exit 0
+ASTRONA_STUDENT_SCRIPT

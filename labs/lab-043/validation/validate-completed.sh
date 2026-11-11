@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms sssd.conf/nsswitch.conf are correctly wired, lfcsuser/developers
 # resolve via NSS, and local accounts (root) remain unaffected.
 
@@ -77,6 +79,22 @@ if [[ "$root_id" != *"uid=0(root)"* ]]; then
   exit 1
 fi
 
+# Reject a client that makes the task pass by disabling server authentication.
+if ! sudo python3 - <<'CONFIG'
+import configparser
+cfg = configparser.ConfigParser(interpolation=None)
+cfg.read('/etc/sssd/sssd.conf')
+sections = [cfg[s] for s in cfg.sections() if s.startswith('domain/') and cfg[s].get('id_provider') == 'ldap']
+assert sections, 'No LDAP domain configured'
+for domain in sections:
+    assert domain.getboolean('ldap_id_use_start_tls', fallback=False), 'StartTLS is required'
+    assert domain.get('ldap_tls_reqcert', '').lower() in ('demand', 'hard'), 'Certificate verification is required'
+CONFIG
+then
+  echo 'FAIL: LDAP must require StartTLS and trusted server certificates'
+  exit 1
+fi
+
 # A fresh directory-only identity cannot be satisfied by cached lfcsuser data.
 sudo -n bash <<'VERIFY_ROOT'
 set -euo pipefail
@@ -120,3 +138,4 @@ status=$?
 
 echo "PASS: sssd resolves lfcsuser/developers via NSS correctly, and local accounts (root) remain unaffected."
 exit 0
+ASTRONA_STUDENT_SCRIPT

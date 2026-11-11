@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms pam_mkhomedir is active in the shared session steps and the
 # starter file exists.
 set -u
@@ -20,3 +22,4 @@ fi
 
 echo "PASS: pam_mkhomedir is active and /etc/skel/WELCOME.txt exists"
 exit 0
+ASTRONA_STUDENT_SCRIPT

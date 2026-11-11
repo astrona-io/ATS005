@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # OS prep for PLAYGROUND — Sudoers Drop-ins, Aliases & Group Rules
 # Runs once when the environment comes up. Seeds a team group (webops) with two
 # members, one user outside the group, and a backup file in /etc/sudoers.d that
@@ -21,3 +23,4 @@ chmod 0440 /etc/sudoers.d/old-ops.bak
 
 visudo -c >/dev/null
 echo "[playground] ready. Try:  sudo -l -U cleo   sudo visudo -f /etc/sudoers.d/webops"
+ASTRONA_STUDENT_SCRIPT

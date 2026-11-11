@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms contractor1 and their home directory are fully removed
 set -u
 
@@ -14,3 +16,4 @@ fi
 
 echo "PASS: contractor1 and its home directory are fully removed."
 exit 0
+ASTRONA_STUDENT_SCRIPT

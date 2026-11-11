@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms slapd serves dc=example,dc=com, listens on 389 and 636,
 # negotiates TLS on both, and accepts the admin bind with the expected rootPW.
 
@@ -50,3 +52,4 @@ rm -f /tmp/lab040-tls-check.log /tmp/lab040-starttls-check.log /tmp/lab040-whoam
 
 echo "PASS: slapd serves dc=example,dc=com, listens on 389/636, TLS negotiates, and the admin bind works."
 exit 0
+ASTRONA_STUDENT_SCRIPT

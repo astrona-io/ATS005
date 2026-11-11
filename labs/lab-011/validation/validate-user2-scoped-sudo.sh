@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms user2 can run 'sudo bash /root/dangerous.sh' NOPASSWD, and the grant isn't a blanket ALL rule
 set -u
 
@@ -14,7 +16,7 @@ if ! grep -q "dangerous.sh" <<< "$sudo_list"; then
   exit 1
 fi
 
-output=$(su - user2 -c "sudo -n bash /root/dangerous.sh" 2>&1)
+output=$(sudo su - user2 -c "sudo -n bash /root/dangerous.sh" 2>&1)
 status=$?
 if [[ $status -ne 0 ]]; then
   echo "FAIL: user2 scoped sudo - 'sudo -n bash /root/dangerous.sh' did not succeed non-interactively (output: $output)"
@@ -28,3 +30,4 @@ fi
 
 echo "PASS: user2 can run the exact NOPASSWD command as root, with no blanket grant."
 exit 0
+ASTRONA_STUDENT_SCRIPT

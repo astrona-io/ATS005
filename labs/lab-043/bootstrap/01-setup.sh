@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Fully provisions lab-041+lab-042's end state: a TLS-enabled, populated
 # OpenLDAP server at dc=example,dc=com (developers group + lfcsuser
 # account), and additionally installs sssd and its NSS/PAM support
@@ -118,3 +120,4 @@ account required pam_sss.so
 PAM
 exit 0
 BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

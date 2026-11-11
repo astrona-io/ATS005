@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms contractor3 is locked out via the password field, not deleted
 set -u
 
@@ -21,3 +23,4 @@ fi
 
 echo "PASS: contractor3 is locked (passwd -S: L) without being deleted."
 exit 0
+ASTRONA_STUDENT_SCRIPT

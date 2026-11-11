@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Prepares user1's stale home/group state and the sudo target script for lab-011
 set -eu
 
@@ -18,3 +20,4 @@ sudo chown root:root /root/dangerous.sh
 
 echo "Ready for user/group provisioning lab."
 exit 0
+ASTRONA_STUDENT_SCRIPT

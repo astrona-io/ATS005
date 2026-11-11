@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms an @operators hard maxlogins 1 entry exists under limits.conf/limits.d
 
 set -u
@@ -13,3 +15,4 @@ fi
 
 echo "PASS: @operators hard maxlogins 1 is configured"
 exit 0
+ASTRONA_STUDENT_SCRIPT

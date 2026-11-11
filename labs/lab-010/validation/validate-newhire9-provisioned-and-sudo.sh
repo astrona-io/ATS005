@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms newhire9 is provisioned correctly and has an exact scoped NOPASSWD sudo rule for rotate-logs.sh
 set -u
 
@@ -37,7 +39,7 @@ if ! grep -q "rotate-logs.sh" <<< "$sudo_list"; then
   exit 1
 fi
 
-output=$(su - newhire9 -c "sudo -n bash /root/rotate-logs.sh" 2>&1)
+output=$(sudo su - newhire9 -c "sudo -n bash /root/rotate-logs.sh" 2>&1)
 status=$?
 if [[ $status -ne 0 ]] || ! grep -q "log rotation executed as root" <<< "$output"; then
   echo "FAIL: newhire9 sudo - 'sudo -n bash /root/rotate-logs.sh' did not succeed non-interactively as root (output: $output)"
@@ -46,3 +48,4 @@ fi
 
 echo "PASS: newhire9 is fully provisioned with a working scoped NOPASSWD sudo rule."
 exit 0
+ASTRONA_STUDENT_SCRIPT

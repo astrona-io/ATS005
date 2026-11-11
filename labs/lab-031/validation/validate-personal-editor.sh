@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms EDITOR=vim is set only in candidate's own login-shell profile,
 # and that no other account (including root) was touched.
 
@@ -24,7 +26,7 @@ if ! grep -q 'export' "$found_in"; then
   exit 1
 fi
 
-session_editor=$(su - candidate -c 'echo $EDITOR' 2>/dev/null || true)
+session_editor=$(sudo su - candidate -c 'echo $EDITOR' 2>/dev/null || true)
 if [[ "$session_editor" != "vim" ]]; then
   echo "FAIL: personal editor - EDITOR is not 'vim' in a fresh candidate login session (got '$session_editor')"
   exit 1
@@ -42,3 +44,4 @@ done
 
 echo "PASS: EDITOR=vim is set and exported only in candidate's own profile ($found_in)"
 exit 0
+ASTRONA_STUDENT_SCRIPT

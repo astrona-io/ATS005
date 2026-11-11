@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms contractor7 was created using the system's actual useradd -D defaults
 set -u
 
@@ -33,4 +35,5 @@ fi
 
 echo "PASS: contractor7 uses the system's real useradd -D defaults for shell and home."
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

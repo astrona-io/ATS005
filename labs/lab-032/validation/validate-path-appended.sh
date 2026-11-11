@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms ~/work was appended (not prepended) to candidate's PATH, persisted
 # in a login-shell dotfile so it survives a fresh session.
 
@@ -49,4 +51,5 @@ fi
 
 echo "PASS: ~/work is appended after standard system directories in candidate's persisted PATH"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

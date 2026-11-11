@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms pam_mkhomedir is active in the shared session steps and the
 # starter file exists.
 set -u
@@ -22,4 +24,5 @@ fi
 
 echo "PASS: pam_mkhomedir is active and /etc/skel/WELCOME.txt exists"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

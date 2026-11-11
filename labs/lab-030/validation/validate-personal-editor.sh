@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms EDITOR=nano is set only in candidate's own login-shell profile.
 
 set -u
@@ -43,4 +45,5 @@ done
 
 echo "PASS: EDITOR=nano is set and exported only in candidate's own profile ($found_in)"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

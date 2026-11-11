@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms local accounts (root) still resolve and behave exactly as before
 # the LDAP/sssd integration, proving nsswitch.conf ordering ("files" before
 # "sss") kept local accounts safe.
@@ -32,4 +34,5 @@ fi
 
 echo "PASS: local accounts (root) remain fully functional and 'files' still precedes 'sss' in nsswitch.conf."
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

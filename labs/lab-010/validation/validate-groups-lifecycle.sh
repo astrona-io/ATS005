@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms billing-team created, legacy-billing renamed to archive-billing, and temp-scratch deleted
 set -u
 
@@ -46,4 +48,5 @@ fi
 
 echo "PASS: billing-team created, legacy-billing renamed to archive-billing intact, temp-scratch deleted."
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

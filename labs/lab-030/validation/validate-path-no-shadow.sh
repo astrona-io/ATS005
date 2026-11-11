@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms ~/bin is appended (not prepended) to candidate's PATH, and that a
 # same-named decoy script placed there never shadows a real system command.
 
@@ -61,4 +63,5 @@ fi
 
 echo "PASS: ~/bin is appended after standard system directories and never shadows real commands"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

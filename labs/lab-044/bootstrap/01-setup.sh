@@ -73,6 +73,13 @@ sleep 2
 LFCS_HASH=$(slappasswd -s "$LFCS_PASSWORD")
 
 cat > /tmp/populate.ldif << EOF
+dn: ${BASE_DN}
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: LFCS Directory
+dc: example
+
 dn: ou=people,${BASE_DN}
 objectClass: organizationalUnit
 ou: people

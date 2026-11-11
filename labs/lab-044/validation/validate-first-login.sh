@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Adds a brand new directory user at grading time, runs a login as that user,
 # and checks the home that the login created.
 set -u
@@ -70,4 +72,5 @@ fi
 
 echo "PASS: a first login created a stocked home owned by the new user"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

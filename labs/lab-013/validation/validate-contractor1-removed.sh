@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms contractor1 and their home directory are fully removed
 set -u
 
@@ -16,4 +18,5 @@ fi
 
 echo "PASS: contractor1 and its home directory are fully removed."
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

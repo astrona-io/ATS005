@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms a proper hard nproc limit for jackie exists under limits.d,
 # matches the soft value originally planted (read dynamically, not hardcoded),
 # and the old .bashrc hack has been removed.
@@ -35,4 +37,5 @@ fi
 
 echo "PASS: jackie's proper hard nproc limit ($found) is set via limits.d, and the .bashrc hack is removed"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

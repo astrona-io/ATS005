@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms user2 can run 'sudo bash /root/dangerous.sh' NOPASSWD, and the grant isn't a blanket ALL rule
 set -u
 
@@ -30,4 +32,5 @@ fi
 
 echo "PASS: user2 can run the exact NOPASSWD command as root, with no blanket grant."
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

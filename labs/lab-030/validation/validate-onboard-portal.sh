@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms ONBOARD_PORTAL is exported system-wide for login shells via a
 # real /etc/profile.d/ script (not /etc/environment, not a per-user dotfile).
 
@@ -25,4 +27,5 @@ fi
 
 echo "PASS: ONBOARD_PORTAL correctly set system-wide via /etc/profile.d/ for login shells"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

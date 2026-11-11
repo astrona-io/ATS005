@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Plants a same-named decoy script in ~/work and confirms it never wins over
 # the real system command, proving PATH was appended rather than prepended.
 
@@ -39,4 +41,5 @@ fi
 
 echo "PASS: real system 'ls' still resolves first; ~/work does not shadow existing commands"
 exit 0
+GRADER_ROOT
 ASTRONA_STUDENT_SCRIPT

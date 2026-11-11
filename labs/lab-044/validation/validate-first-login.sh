@@ -9,7 +9,16 @@ set -u
 
 ADMIN_DN="cn=admin,dc=example,dc=com"
 ADMIN_PASSWORD="LdapRoot!2024"
-PROBE="gradeprobe"
+PROBE="gradeprobe$$"
+PROBE_UID=$((200000 + $$))
+probe_file=$(mktemp)
+cleanup() {
+  ldapdelete -x -D "$ADMIN_DN" -w "$ADMIN_PASSWORD" -H ldap://127.0.0.1 "uid=${PROBE},ou=people,dc=example,dc=com" >/dev/null 2>&1 || true
+  rm -f "$probe_file"
+  rm -rf "/home/$PROBE"
+  sss_cache -E >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 if ! getent passwd newcomer >/dev/null; then
   echo "FAIL: newcomer no longer resolves, so sssd or nsswitch was broken"
@@ -17,7 +26,7 @@ if ! getent passwd newcomer >/dev/null; then
 fi
 
 if ! getent passwd "$PROBE" >/dev/null; then
-  cat > /tmp/gradeprobe.ldif <<LDIF
+  cat > "$probe_file" <<LDIF
 dn: uid=${PROBE},ou=people,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
@@ -25,19 +34,23 @@ objectClass: shadowAccount
 cn: Grade Probe
 sn: Probe
 uid: ${PROBE}
-uidNumber: 10090
+uidNumber: ${PROBE_UID}
 gidNumber: 5000
 homeDirectory: /home/${PROBE}
 loginShell: /bin/bash
 LDIF
-  if ! ldapadd -x -D "$ADMIN_DN" -w "$ADMIN_PASSWORD" -H ldap://127.0.0.1 -f /tmp/gradeprobe.ldif >/dev/null 2>&1; then
+  if ! ldapadd -x -D "$ADMIN_DN" -w "$ADMIN_PASSWORD" -H ldap://127.0.0.1 -f "$probe_file" >/dev/null 2>&1; then
     echo "FAIL: the grader could not add its probe user to the directory"
     exit 1
   fi
-  rm -f /tmp/gradeprobe.ldif
+  rm -f "$probe_file"
   # allow sssd to see the new entry
   sss_cache -E >/dev/null 2>&1 || true
-  sleep 2
+  for attempt in $(seq 1 30); do
+    getent passwd "$PROBE" >/dev/null && break
+    sss_cache -E >/dev/null 2>&1 || true
+    sleep 1
+  done
 fi
 
 if ! getent passwd "$PROBE" >/dev/null; then
@@ -54,9 +67,9 @@ if [ ! -d "/home/$PROBE" ]; then
   exit 1
 fi
 
-owner=$(stat -c %U "/home/$PROBE")
-if [ "$owner" != "$PROBE" ]; then
-  echo "FAIL: /home/$PROBE is owned by $owner, expected $PROBE"
+owner=$(stat -c %u "/home/$PROBE")
+if [ "$owner" != "$PROBE_UID" ]; then
+  echo "FAIL: /home/$PROBE is owned by UID $owner, expected $PROBE_UID"
   exit 1
 fi
 

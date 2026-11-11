@@ -61,3 +61,25 @@ Every host that will later look up users in this registry depends on the name, t
 The certificate itself is taken as given in this module. The job is wiring it into the server and proving that it negotiates.
 
 > *`slapd` running is not the same as TLS working: the registry is ready only once an encrypted handshake is proven, not merely configured.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [OpenLDAP Server Install & TLS Lab](../../../labs/lab-041/docs/question.md): Set the base DN, admin DN and hashed admin password through cn=config; Wire a certificate and key into slapd and listen on ports 389 and 636; Prove that StartTLS and LDAPS both work.
+- [Centralized Identity with LDAP Capstone Lab](../../../labs/lab-040/docs/question.md): Build a TLS-secured OpenLDAP server and populate it with a POSIX group and user; Wire the same host into the directory with sssd and nsswitch; Prove that directory users resolve while local accounts stay unaffected.
+
+## Trust the lab certificate before testing TLS
+
+The server settings do not configure client trust. Install the lab certificate as the client trust anchor and require certificate verification:
+
+```bash
+sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
+TLS_CACERT /etc/ldap/certs/ldap-server.crt
+TLS_REQCERT demand
+EOF
+openssl s_client -connect 127.0.0.1:636 \
+  -CAfile /etc/ldap/certs/ldap-server.crt -verify_ip 127.0.0.1 \
+  -verify_return_error -brief </dev/null
+```
+
+A successful handshake alone does not prove trust. This command must verify the certificate and the address. Then test StartTLS with `ldapsearch -ZZ`; keep verification enabled.

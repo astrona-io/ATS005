@@ -9,3 +9,16 @@ Astronaut, this ship's crew roster needs three fixes. One crew member must move 
 3. User `user2` must be able to run `sudo bash /root/dangerous.sh` without being asked for a password, and only that exact command.
 
 The grader checks `user1`'s primary group, home path and moved files, `user2`'s groups, home and shell, and that `user2` can run that one command with `sudo -n` while no blanket `NOPASSWD: ALL` rule exists.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-01](../../../sections/section-010/module-01/course.md).
+
+The grader checks:
+
+- Confirms user1's primary group is dev, home is /home/accounts/user1, and original files were moved (not left behind).
+- Confirms user2 exists with groups dev+op, home /home/accounts/user2, and shell /bin/bash.
+- Confirms user2 can run 'sudo bash /root/dangerous.sh' with no password prompt, and that the rule is scoped (not a blanket ALL grant).
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

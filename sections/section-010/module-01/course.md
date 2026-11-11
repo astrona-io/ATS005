@@ -61,3 +61,9 @@ Local accounts and groups are the base layer of identity on Linux. Password agin
 The two mistakes this module guards against stay invisible until an audit or an incident finds them. One is replacing a group list when you meant to extend it. The other is granting `ALL` when you meant one command.
 
 > *In `sudoers`, "close enough" is a fail: the command must match exactly, or `NOPASSWD` never applies.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [User & Group Provisioning and Scoped Sudo Lab](../../../labs/lab-011/docs/question.md): Move an account to a new primary group and home directory, files included; Create an account with the right groups, home and shell in one command; Grant one exact command through sudo with no password, and nothing more.
+- [Local Account & Group Lifecycle Capstone Lab](../../../labs/lab-010/docs/question.md): Relocate one account and provision another with a scoped sudo rule; Create, rename and delete groups without losing GIDs or members; Lock, expire and remove accounts at the right stage of their life.

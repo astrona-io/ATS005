@@ -51,3 +51,9 @@ Every command block in the parts runs **inside that virtual machine**.
 On a real machine most processes belong to services. A limit that only works for logins protects nothing when a runaway service eats every file handle. The exam asks you to set a limit and prove that it reached the process.
 
 > *A limit is only real when you can read it from the running process.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [systemd Service And User Limits Lab](../../../labs/lab-023/docs/question.md): Raise the open-file limit of a running service and prove the process carries it; Cap one user's whole slice with a setting that survives a reload; Explain why limits.conf does not reach services.
+- [Access Control & Resource Limits Capstone Lab](../../../labs/lab-020/docs/question.md): Give two outside users read-write and read-only access to a shared tree, inherited by new files; Turn a soft .bashrc process limit into a hard PAM limit; Limit a group to one login session at a time.

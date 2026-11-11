@@ -57,3 +57,9 @@ Every command block in the parts runs **inside that virtual machine**, as `root`
 A `PATH` entry in the wrong *position* is worse than one in the wrong *file*. It can let a directory that a user (or an attacker who fooled that user) can write to override a real command, `sudo` included. That breaks the same privilege boundary that careful `sudo` rules protect.
 
 > *`PATH` is searched left to right, and the first match wins. Where a new directory goes in that list is a security decision, not a formatting one.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [Safe PATH Extension & Precedence Lab](../../../labs/lab-032/docs/question.md): Add a personal directory to PATH so it survives new login shells; Append the directory so a same-named script never replaces a system command.
+- [Shell Environment & PATH Capstone Lab](../../../labs/lab-030/docs/question.md): Export a variable for every login shell through a profile.d script; Set a personal variable and extend PATH for one user only; Prove that a decoy script never replaces a real system command.

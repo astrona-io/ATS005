@@ -12,3 +12,19 @@ Astronaut, mission control has put you in charge of a full sweep of this ship's 
 6. **Immediate removal:** The account `leaver5` has already left and must be removed entirely, including their home directory.
 
 The grader checks `analyst9`'s primary group, home path and moved files; `newhire9`'s groups, home, shell and its one working `sudo -n` command with no blanket `NOPASSWD: ALL` rule; `billing-team` (GID `6000`, both members), `archive-billing` (GID `7000`, member `billingclerk` kept, `legacy-billing` gone) and the removal of `temp-scratch`; that `audit2` still exists with `passwd -S` status `L`; that `shortterm3` expires in about 14 days; and that `leaver5` and `/home/leaver5` are gone.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-01](../../../sections/section-010/module-01/course.md), [module-02](../../../sections/section-010/module-02/course.md), [module-03](../../../sections/section-010/module-03/course.md), [module-04](../../../sections/section-010/module-04/course.md).
+
+The grader checks:
+
+- Confirms analyst9's primary group is finance, home is /home/accounts/analyst9, and original files were moved.
+- Confirms newhire9 exists with groups finance+ops, home /home/accounts/newhire9, shell /bin/bash, and an exact scoped NOPASSWD sudo rule for rotate-logs.sh.
+- Confirms billing-team (GID 6000) exists with analyst9+newhire9 as members, legacy-billing was renamed to archive-billing keeping its GID 7000, and temp-scratch was deleted.
+- Confirms audit2 is locked out via the password field without being deleted.
+- Confirms shortterm3's account is set to fully expire in ~14 days.
+- Confirms leaver5 and their home directory are fully removed.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

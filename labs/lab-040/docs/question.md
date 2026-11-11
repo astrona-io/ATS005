@@ -23,3 +23,17 @@ Your organization needs this host, `data-001`, to become both a centralized LDAP
 9.  Set `/etc/sssd/sssd.conf` to mode `600`, owned `root:root`.
 10. Add `sss` to the `passwd` and `group` lines in `/etc/nsswitch.conf`, then start and enable `sssd`.
 11. Verify, **in order**: `getent passwd lfcsuser` / `getent group developers` resolve correctly, `id lfcsuser` resolves with the right UID and group, and — critically — `getent passwd root` / `id root` still work exactly as before, completely unaffected by everything above.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-01](../../../sections/section-040/module-01/course.md), [module-02](../../../sections/section-040/module-02/course.md), [module-03](../../../sections/section-040/module-03/course.md), [module-04](../../../sections/section-040/module-04/course.md).
+
+The grader checks:
+
+- Confirms slapd serves dc=example,dc=com, listens on 389 and 636, negotiates TLS on both, and accepts the admin bind with the expected rootPW.
+- Confirms ou=people/ou=groups, the developers posixGroup (gid 5000), and the lfcsuser posixAccount (uid 10001) exist with correct attributes and lfcsuser's bind works over StartTLS.
+- Confirms sssd.conf/nsswitch.conf are correctly wired and lfcsuser/developers resolve via NSS.
+- Confirms local accounts (root) still resolve and authenticate exactly as before the LDAP/sssd integration.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

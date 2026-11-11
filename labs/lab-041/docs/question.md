@@ -10,3 +10,14 @@ The host `data-001` has `slapd` and `ldap-utils` already installed, and a self-s
 4.  Confirm a TLS handshake actually succeeds against port 636, and that a StartTLS-required `ldapsearch` against port 389 also succeeds.
 
 Leave the directory otherwise empty — no organizational units, groups, or user entries. Populating it is a separate task.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-01](../../../sections/section-040/module-01/course.md).
+
+The grader checks:
+
+- Confirms slapd serves dc=example,dc=com, listens on 389 and 636, negotiates TLS, and accepts the admin bind.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

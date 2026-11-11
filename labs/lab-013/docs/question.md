@@ -9,3 +9,18 @@ Astronaut, three crew members on this ship are at different stages of their time
 3. The fully offboarded account `contractor1` must be removed entirely, including its home directory.
 
 The grader checks that `contractor7` has the shell and home base from `useradd -D` with its home on disk, that its password "last changed" field is `0`, and that its account expires in about 30 days; that `contractor3` still exists with `passwd -S` status `L` and a `!` in front of its hash; and that `contractor1` and `/home/contractor1` are gone.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-03](../../../sections/section-010/module-03/course.md).
+
+The grader checks:
+
+- Confirms contractor7 was created using the system's actual useradd -D defaults, not hardcoded overrides.
+- Confirms contractor7's password is expired, forcing a reset on next login.
+- Confirms contractor7's account is set to expire ~30 days from now.
+- Confirms contractor3 is locked out via the password field, not deleted.
+- Confirms contractor1 and their home directory are fully removed.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

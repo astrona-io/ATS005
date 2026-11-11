@@ -62,3 +62,9 @@ A limit that only works when a user logs in "the normal way" is not really enfor
 Limits from `pam_limits.so` apply when a session *opens*. So an already-open shell never shows a change; you always check from a fresh login.
 
 > *If a resource limit only works when a user logs in "the normal way", it is not really enforced. `pam_limits.so` is what makes a limit apply everywhere.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [PAM Hard Limits & maxlogins Lab](../../../labs/lab-022/docs/question.md): Find the soft process limit a user really runs with; Replace a .bashrc ulimit line with a hard nproc limit in limits.d; Allow members of a group only one login session at a time.
+- [Access Control & Resource Limits Capstone Lab](../../../labs/lab-020/docs/question.md): Give two outside users read-write and read-only access to a shared tree, inherited by new files; Turn a soft .bashrc process limit into a hard PAM limit; Limit a group to one login session at a time.

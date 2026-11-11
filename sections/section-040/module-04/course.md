@@ -52,3 +52,9 @@ Every command block in the parts runs **inside that virtual machine**.
 The directory stores a home path, not a home folder. Without `pam_mkhomedir`, every new registry user lands in `/` on the first login. The exam asks for the switch, and a real fleet needs it before the first crew member arrives.
 
 > *A cabin number in the registry is not a cabin.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [Home Directories For Directory Users Lab](../../../labs/lab-044/docs/question.md): Switch on home creation for logins with pam-auth-update; Add a starter file to /etc/skel; Prove that a brand new directory user gets a stocked home on first login.
+- [Centralized Identity with LDAP Capstone Lab](../../../labs/lab-040/docs/question.md): Build a TLS-secured OpenLDAP server and populate it with a POSIX group and user; Wire the same host into the directory with sssd and nsswitch; Prove that directory users resolve while local accounts stay unaffected.

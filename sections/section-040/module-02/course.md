@@ -65,3 +65,9 @@ A Linux client maps these POSIX attributes straight onto a `passwd`-style record
 An entry that exists is not the same as an entry someone can bind as over an encrypted channel. The exam, and real life, need both.
 
 > *An entry existing and an entry being reachable over an encrypted bind are two different claims: prove both before you call the directory ready.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [LDAP Directory Population & Verified TLS Bind Lab](../../../labs/lab-042/docs/question.md): Add organizational units, a POSIX group and a POSIX user from LDIF files; Set the user's password and prove an authenticated bind over required StartTLS.
+- [Centralized Identity with LDAP Capstone Lab](../../../labs/lab-040/docs/question.md): Build a TLS-secured OpenLDAP server and populate it with a POSIX group and user; Wire the same host into the directory with sssd and nsswitch; Prove that directory users resolve while local accounts stay unaffected.

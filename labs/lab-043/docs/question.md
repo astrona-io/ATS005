@@ -25,3 +25,14 @@ Enter the training password `LfcsLdap!2024`, then repeat with a wrong password. 
 Set `ldap_tls_reqcert = demand` in the SSSD domain configuration. Trust the lab certificate with `ldap_tls_cacert`; disabling certificate verification is not a repair. After changing the configuration, restart SSSD.
 
 The grader creates a temporary directory identity, resolves it through SSSD, checks its correct and incorrect passwords, then removes it. This proves a fresh lookup rather than relying on a cached account or a matching local user. CI also replaces the trust certificate with an unrelated certificate and requires a fresh lookup to fail.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-03](../../../sections/section-040/module-03/course.md).
+
+The grader checks:
+
+- Confirms sssd.conf/nsswitch.conf are correctly wired, lfcsuser and developers resolve via NSS, and local accounts like root are unaffected.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

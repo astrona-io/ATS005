@@ -12,3 +12,15 @@ There is a shared project directory `/srv/projects/orion`, owned by `team-lead:o
 4. Configure things so that any file or subdirectory created under `/srv/projects/orion` from now on automatically inherits both contractor-jane's and auditor-tom's access, with no manual `setfacl` re-run required.
 
 The grader checks that the owner and group are unchanged, that `/srv/projects/orion` and the files already inside it carry `user:contractor-jane:rwx` and `user:auditor-tom:r-x`, that the directory has matching `default:` entries, and that a new file created by `team-lead` inherits both entries.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-01](../../../sections/section-020/module-01/course.md).
+
+The grader checks:
+
+- Confirms contractor-jane (rwx) and auditor-tom (r-x) named ACL entries exist on the tree and pre-existing files/ownership are correct.
+- Confirms default ACL entries are set and a newly created file automatically inherits both named entries.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

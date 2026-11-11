@@ -57,3 +57,9 @@ Every command block in the parts runs **inside that virtual machine**.
 The dates this module sets live in `/etc/shadow`, but PAM (Pluggable Authentication Modules, the airlock checklist every crew member passes when coming aboard) enforces them when someone logs in. Two differences decide whether an incident is really contained. A locked *password* is not a locked *account*, because key login ignores the password field. And a limited *password* lifetime (`-M`) is not a limited *account* lifetime (`-E`). Getting the layer right is the difference between "they cannot log in" and "they still can".
 
 > *Locking an account (`passwd -l` or `usermod -L`) disables the password, not the account: an SSH key that is already authorized still lets that user in unless you also disable the shell or remove the key.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [Account Defaults, Password Aging & Locking Lab](../../../labs/lab-013/docs/question.md): Create an account with the system's real defaults and force a new password at first login; Set an account to expire on a date and lock another without deleting it; Remove an offboarded account together with its home directory.
+- [Local Account & Group Lifecycle Capstone Lab](../../../labs/lab-010/docs/question.md): Relocate one account and provision another with a scoped sudo rule; Create, rename and delete groups without losing GIDs or members; Lock, expire and remove accounts at the right stage of their life.

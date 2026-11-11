@@ -56,3 +56,9 @@ Every command block in the parts runs **inside that virtual machine**.
 On the exam you rarely write one rule for one user. You give a team the same few commands, you keep the rules in a file you can remove again, and you leave the machine with `sudo` still working. A broken rules file can lock every crew member out of the captain's authority.
 
 > *Write rules in drop-in files, check them with `visudo` before they go live, and prove each grant with `sudo -l -U`.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [Group Sudo Rules With Aliases Lab](../../../labs/lab-014/docs/question.md): Write a sudoers drop-in with a command alias and a group rule that needs no password; Give a second user one command that still asks for a password; Prove the file is safe with visudo -c and sudo -l.
+- [Local Account & Group Lifecycle Capstone Lab](../../../labs/lab-010/docs/question.md): Relocate one account and provision another with a scoped sudo rule; Create, rename and delete groups without losing GIDs or members; Lock, expire and remove accounts at the right stage of their life.

@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-jackie-hard-nproc-limit": "no 'jackie hard nproc"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-jackie-hard-nproc-limit": "no 'jackie hard nproc"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ]
+}

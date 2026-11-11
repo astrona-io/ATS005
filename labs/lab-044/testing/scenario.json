@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-mkhomedir-enabled": "pam_mkhomedir"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-mkhomedir-enabled": "pam_mkhomedir"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ]
+}

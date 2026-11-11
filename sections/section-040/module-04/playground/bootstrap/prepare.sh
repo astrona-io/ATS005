@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+sudo -n bash <<'BOOTSTRAP_ROOT'
 # OS prep for PLAYGROUND — Home Directories For Directory Users
 # Runs once when the environment comes up. Reproduces Modules 1-2's finished
 # state plus a wired sssd client and a second user `newcomer` (UID 10002).
@@ -52,11 +53,19 @@ olcTLSCACertificateFile: /etc/ldap/certs/ldap-server.crt
 EOF
 ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/pg-cfg.ldif
 sed -i 's|^SLAPD_SERVICES=.*|SLAPD_SERVICES="ldap:/// ldaps:/// ldapi:///"|' /etc/default/slapd
+printf '%s\n' 'TLS_CACERT /etc/ldap/certs/ldap-server.crt' 'TLS_REQCERT demand' > /etc/ldap/ldap.conf
 systemctl restart slapd
 sleep 2
 
 # --- populate the directory (Module 2's output) -----------------------
 cat > /tmp/pg-data.ldif <<'EOF'
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: LFCS directory
+dc: example
+
 dn: ou=people,dc=example,dc=com
 objectClass: organizationalUnit
 ou: people
@@ -133,4 +142,5 @@ sed -i '/pam_mkhomedir/d' /etc/pam.d/common-session
 
 rm -f /tmp/pg-cfg.ldif /tmp/pg-data.ldif
 echo "[playground] ready. sssd wired; users lfcsuser and newcomer resolve; no homes, mkhomedir off."
+BOOTSTRAP_ROOT
 ASTRONA_STUDENT_SCRIPT

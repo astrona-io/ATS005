@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Match the account used by astrona ssh, including its home and permissions.
 sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+sudo -n bash <<'BOOTSTRAP_ROOT'
 # Playground: a ledger tree with ACL entries and a careless cleanup script.
 set -eu
 
@@ -33,4 +34,5 @@ SCRIPT
 chmod 755 /root/strip-acls.sh
 
 exit 0
+BOOTSTRAP_ROOT
 ASTRONA_STUDENT_SCRIPT

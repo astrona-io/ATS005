@@ -23,6 +23,22 @@
           "script": "testing/solution.sh"
         }
       ]
+    },
+    {
+      "name": "verification-disabled",
+      "apply": [
+        {
+          "script": "testing/disable-verification.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-sssd-ldap-resolution": "LDAP must require StartTLS"
+      },
+      "restore": [
+        {
+          "script": "testing/solution.sh"
+        }
+      ]
     }
   ]
 }

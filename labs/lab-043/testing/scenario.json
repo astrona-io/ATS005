@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-sssd-ldap-resolution": "FAIL: sssd is not active"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "untrusted-directory",
+      "apply": [
+        {
+          "script": "testing/wrong-trust.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-sssd-ldap-resolution": "FAIL: (fresh LDAP identity did not resolve through SSSD|.*getent passwd lfcsuser.*returned nothing)"
+      },
+      "restore": [
+        {
+          "script": "testing/solution.sh"
+        }
+      ]
+    }
+  ]
+}

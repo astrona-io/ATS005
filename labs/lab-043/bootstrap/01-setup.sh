@@ -5,11 +5,13 @@
 # packages. Writing /etc/sssd/sssd.conf and wiring nsswitch.conf are left
 # as this lab's graded task.
 set -eu
+sudo -n bash <<'BOOTSTRAP_ROOT'
+set -eu
 
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -y
-apt-get install -y slapd ldap-utils openssl sssd sssd-ldap libnss-sss libpam-sss
+apt-get install -y slapd ldap-utils openssl sssd sssd-ldap libnss-sss libpam-sss pamtester
 
 BASE_DN="dc=example,dc=com"
 ADMIN_DN="cn=admin,dc=example,dc=com"
@@ -72,6 +74,13 @@ sleep 2
 LFCS_HASH=$(slappasswd -s "$LFCS_PASSWORD")
 
 cat > /tmp/populate.ldif << EOF
+dn: ${BASE_DN}
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: LFCS Training
+dc: example
+
 dn: ou=people,${BASE_DN}
 objectClass: organizationalUnit
 ou: people
@@ -103,4 +112,9 @@ ldapadd -x -D "${ADMIN_DN}" -w "${ADMIN_PASSWORD}" -H ldap://127.0.0.1 -f /tmp/p
 rm -f /tmp/set-suffix.ldif /tmp/set-tls.ldif /tmp/populate.ldif
 
 echo "Bootstrap complete: TLS-enabled, populated OpenLDAP server ready; sssd + NSS/PAM modules installed. Configure /etc/sssd/sssd.conf and nsswitch.conf as your task."
+cat >/etc/pam.d/lfcs-ldap <<'PAM'
+auth required pam_sss.so
+account required pam_sss.so
+PAM
 exit 0
+BOOTSTRAP_ROOT

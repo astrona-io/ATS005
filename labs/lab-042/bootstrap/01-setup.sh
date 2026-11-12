@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Fully provisions lab-041's end state: installs slapd, generates a
 # self-signed TLS cert/key, sets base DN dc=example,dc=com with admin
 # cn=admin,dc=example,dc=com / LdapRoot!2024, wires TLS into cn=config, and
 # enables both StartTLS (389) and native LDAPS (636). The directory itself
 # is left empty - populating it is this lab's graded task.
+sudo -n bash <<'BOOTSTRAP_ROOT'
 set -eu
 
 export DEBIAN_FRONTEND=noninteractive
@@ -65,6 +68,7 @@ else
   echo 'SLAPD_SERVICES="ldap:/// ldaps:/// ldapi:///"' >> /etc/default/slapd
 fi
 
+printf '%s\n' 'TLS_CACERT /etc/ldap/certs/ldap-server.crt' 'TLS_REQCERT demand' > /etc/ldap/ldap.conf
 systemctl restart slapd
 sleep 2
 
@@ -72,3 +76,5 @@ rm -f /tmp/set-suffix.ldif /tmp/set-tls.ldif
 
 echo "Bootstrap complete: TLS-enabled OpenLDAP server ready at dc=example,dc=com, empty (lab-041 end state)."
 exit 0
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

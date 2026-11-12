@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms contractor7's account is set to expire ~30 days from now (not just the password)
 set -u
 
@@ -23,3 +27,5 @@ fi
 
 echo "PASS: contractor7's account expires in $delta day(s), matching the required ~30-day expiration."
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

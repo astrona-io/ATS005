@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-personal-editor": "EDITOR"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-personal-editor": "EDITOR"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ]
+}

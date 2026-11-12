@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-contractor7-password-expired": "account does not exist"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-contractor7-password-expired": "forced reset"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ]
+}

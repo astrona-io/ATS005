@@ -11,6 +11,13 @@ An LDAP directory is structured as a tree. Before adding any users or groups, we
 Create an LDIF file defining OUs for people and groups:
 ```bash
 cat > /tmp/ou-structure.ldif << 'EOF'
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: LFCS directory
+dc: example
+
 dn: ou=people,dc=example,dc=com
 objectClass: organizationalUnit
 ou: people

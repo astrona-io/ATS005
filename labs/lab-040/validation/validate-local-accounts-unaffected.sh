@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms local accounts (root) still resolve and behave exactly as before
 # the LDAP/sssd integration, proving nsswitch.conf ordering ("files" before
 # "sss") kept local accounts safe.
@@ -17,12 +21,12 @@ if [[ "$root_id" != *"uid=0(root)"* ]]; then
   exit 1
 fi
 
-if ! su - root -c 'true' >/dev/null 2>&1; then
-  echo "FAIL: 'su - root' sanity check failed - local authentication path may be broken"
+if ! sudo su - root -c 'true' >/dev/null 2>&1; then
+  echo "FAIL: 'sudo su - root' sanity check failed - local authentication path may be broken"
   exit 1
 fi
 
-passwd_line=$(grep -E '^passwd:' /etc/nsswitch.conf 2>/dev/null)
+passwd_line=$(awk '/^passwd:/{print $2}' /etc/nsswitch.conf)
 if [[ "$passwd_line" != files* ]]; then
   echo "FAIL: 'files' is no longer the first source on the nsswitch.conf 'passwd' line: '${passwd_line:-<missing>}'"
   exit 1
@@ -30,3 +34,5 @@ fi
 
 echo "PASS: local accounts (root) remain fully functional and 'files' still precedes 'sss' in nsswitch.conf."
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+sudo -n bash <<'BOOTSTRAP_ROOT'
 # OS prep for PLAYGROUND — Resource Limits With systemd
 # Runs once when the environment comes up. Seeds a running service without any
 # limits set by the learner (ledger-sync) and a user with a fixed UID (dana).
@@ -24,3 +27,5 @@ systemctl daemon-reload
 systemctl enable --now ledger-sync.service
 
 echo "[playground] ready. Try:  systemctl show ledger-sync -p LimitNOFILE   systemctl show user-2010.slice -p TasksMax"
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

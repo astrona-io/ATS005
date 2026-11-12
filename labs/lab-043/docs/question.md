@@ -11,3 +11,28 @@ Configure this host to authenticate against that directory using `sssd`:
 3.  Add `sss` to the `passwd` and `group` lines in `/etc/nsswitch.conf`.
 4.  Start (and enable) `sssd`.
 5.  Verify, **in this order**: that `getent passwd lfcsuser` and `getent group developers` resolve correctly, that `id lfcsuser` shows the right UID and group, and that `getent passwd root` / `id root` still work exactly as before.
+
+## Verify authentication as well as identity
+
+`getent` proves an identity lookup; it does not test a password. This lab also provides a PAM service named `lfcs-ldap` that uses `pam_sss`. Run:
+
+```sh
+pamtester lfcs-ldap lfcsuser authenticate
+```
+
+Enter the training password `LfcsLdap!2024`, then repeat with a wrong password. The first attempt should succeed and the second should fail. Do not use root's `su` as a password test: root can switch users without authenticating as that user.
+
+Set `ldap_tls_reqcert = demand` in the SSSD domain configuration. Trust the lab certificate with `ldap_tls_cacert`; disabling certificate verification is not a repair. After changing the configuration, restart SSSD.
+
+The grader creates a temporary directory identity, resolves it through SSSD, checks its correct and incorrect passwords, then removes it. This proves a fresh lookup rather than relying on a cached account or a matching local user. CI also replaces the trust certificate with an unrelated certificate and requires a fresh lookup to fail.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-03](../../../sections/section-040/module-03/course.md).
+
+The grader checks:
+
+- Confirms sssd.conf/nsswitch.conf are correctly wired, lfcsuser and developers resolve via NSS, and local accounts like root are unaffected.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

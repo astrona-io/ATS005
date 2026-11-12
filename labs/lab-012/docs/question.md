@@ -9,3 +9,17 @@ Astronaut, this ship's crew teams need sorting out. A new team must be formed wi
 3. Delete the unused group `temp-audit` entirely.
 
 The grader checks that `datateam` has GID `5000` with `marta` and `cilla` as members, that both users still have `staff` as their primary group, that `platform-ops` has GID `4200` and still lists its member `opadmin` while `legacy-ops` is gone, and that `temp-audit` no longer exists.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-02](../../../sections/section-010/module-02/course.md).
+
+The grader checks:
+
+- Confirms datateam exists with GID 5000 and marta+cilla as members.
+- Confirms marta and cilla's primary group is still staff.
+- Confirms legacy-ops was renamed to platform-ops with GID 4200 and membership preserved.
+- Confirms temp-audit no longer exists.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

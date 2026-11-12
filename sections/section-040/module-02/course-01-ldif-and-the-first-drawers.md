@@ -13,6 +13,13 @@ Every change to directory data is written in **LDIF** (LDAP Data Interchange For
 Save this file with two entries as `/tmp/ou-structure.ldif`:
 
 ```ldif
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: LFCS directory
+dc: example
+
 dn: ou=people,dc=example,dc=com
 objectClass: organizationalUnit
 ou: people

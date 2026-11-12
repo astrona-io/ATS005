@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-directory-populated-and-bind": "could not search the directory|ou=people.*does not exist"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-directory-populated-and-bind": "authenticated bind as lfcsuser"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ]
+}

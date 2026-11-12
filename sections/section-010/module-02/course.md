@@ -57,3 +57,9 @@ Every command block in the parts runs **inside that virtual machine**.
 Shared directories, the setgid bit and access control lists all grant access through groups. Two facts from this module protect all of them. File ownership on disk is stored as a *number*, not a name, so renaming a group is safe but deleting one leaves a bare number on any file that still carries its GID. And a group's member list is not the same as the groups a running shell has active.
 
 > *A user can be a member of a group in `/etc/group` and still not have that group's access in their current shell: membership changes do not reach a session that is already open.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [Group Creation, Membership & the Active-Group Trap Lab](../../../labs/lab-012/docs/question.md): Create a group with a fixed GID and add existing users to it without touching their other groups; Rename a group while keeping its GID and its members; Delete a group that nothing uses.
+- [Local Account & Group Lifecycle Capstone Lab](../../../labs/lab-010/docs/question.md): Relocate one account and provision another with a scoped sudo rule; Create, rename and delete groups without losing GIDs or members; Lock, expire and remove accounts at the right stage of their life.

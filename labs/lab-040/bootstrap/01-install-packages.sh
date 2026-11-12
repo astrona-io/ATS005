@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Installs OpenLDAP server/client packages, the full sssd client stack, and
 # pre-generates a self-signed TLS cert/key pair. Base DN, admin credentials,
 # cn=config TLS/listener wiring, directory population, and the sssd/nsswitch
 # client configuration are all left as this capstone's graded task.
+sudo -n bash <<'BOOTSTRAP_ROOT'
 set -eu
 
 export DEBIAN_FRONTEND=noninteractive
@@ -27,3 +30,5 @@ chmod 644 /etc/ldap/certs/ldap-server.crt
 
 echo "Bootstrap complete: slapd + sssd stack installed, TLS cert/key pre-generated at /etc/ldap/certs/."
 exit 0
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

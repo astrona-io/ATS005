@@ -52,3 +52,9 @@ Every command block in the parts runs **inside that virtual machine**.
 ACLs live in the file system, not in a file you can copy. A restore from a normal file backup, a `cp` or a moved directory can drop them without a sound. The exam asks for the recursive forms, and a real ship needs the backup habit.
 
 > *Photograph the guest lists before you tidy the hold.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [ACL Tree Backup And Restore Lab](../../../labs/lab-024/docs/question.md): Save the ACLs of a whole tree to a file before a risky change; Restore every entry, owner and group after a cleanup accident; Remove one user from a whole tree.
+- [Access Control & Resource Limits Capstone Lab](../../../labs/lab-020/docs/question.md): Give two outside users read-write and read-only access to a shared tree, inherited by new files; Turn a soft .bashrc process limit into a hard PAM limit; Limit a group to one login session at a time.

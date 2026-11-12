@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+sudo -n bash <<'BOOTSTRAP_ROOT'
 # Starting state for lab-024: a ledger tree with many ACL entries and a
 # cleanup script that strips them all. The backup and restore are the task.
 set -eu
@@ -32,3 +35,5 @@ SCRIPT
 chmod 755 /root/strip-acls.sh
 
 exit 0
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

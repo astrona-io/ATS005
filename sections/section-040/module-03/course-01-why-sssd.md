@@ -61,3 +61,11 @@ Every package is installed, yet `getent passwd lfcsuser` returns nothing (exit c
 > - **Expecting installed packages to do something.** Without `sssd.conf` and an `sss` entry in `nsswitch.conf`, nothing changes.
 > - **Forgetting `libnss-sss` or `libpam-sss`.** `sssd` runs, but lookups or logins never reach it.
 > - **Reading exit code `2` as a crash.** For `getent` it simply means "not found".
+
+## Prove authentication with a fresh identity
+
+`getent passwd lfcsuser` proves identity lookup, but an old SSSD cache entry can answer after the directory goes offline. It also says nothing about the password. Test a directory-only identity that has never logged in, then use a PAM authentication client with its correct password and with a deliberately wrong one. Root's `su` can skip password checks, so it is unsuitable evidence.
+
+For this StartTLS exercise, `/etc/sssd/sssd.conf` must set `ldap_id_use_start_tls = true`, `ldap_tls_reqcert = demand`, and `ldap_tls_cacert` to the trusted lab certificate. Keep the file owned by root with mode 600. Restart SSSD after changes and inspect `journalctl -u sssd` when lookup fails.
+
+The lab grader creates and removes a fresh directory probe, then tests lookup and PAM password authentication. CI also configures an unrelated CA and confirms fresh authentication fails. Setting `ldap_tls_reqcert = never` is rejected because it lets an untrusted server impersonate the directory.

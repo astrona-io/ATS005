@@ -14,3 +14,15 @@ User `jackie` caused an issue by running a program that forked far too many subp
 Note: an interactive live-login test of the `maxlogins` restriction may not be possible from this session. The configuration itself, checked by inspection, is the deliverable.
 
 The grader checks that `/etc/security/limits.conf` or a file in `/etc/security/limits.d/` has a `jackie hard nproc <n>` line with the number the coworker planted, that the `ulimit -Sp` line is gone from `/home/jackie/.bashrc`, and that a `@operators hard maxlogins 1` line exists.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-02](../../../sections/section-020/module-02/course.md).
+
+The grader checks:
+
+- Confirms a proper hard nproc limit for jackie exists in limits.d matching the soft value the bootstrap planted, and the old .bashrc hack is removed.
+- Confirms an @operators hard maxlogins 1 entry exists under limits.d.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

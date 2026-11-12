@@ -1,0 +1,31 @@
+{
+  "initial_failures": {
+    "default/verify-ldap-server-tls": "nothing is listening on port 636"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-ldap-server-tls": "slapd is not active"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ],
+  "reboot": [
+    "default"
+  ]
+}

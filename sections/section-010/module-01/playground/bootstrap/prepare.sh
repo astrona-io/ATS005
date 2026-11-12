@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+sudo -n bash <<'BOOTSTRAP_ROOT'
 # OS prep for PLAYGROUND — User & Group Account Management
 # Runs once when the environment comes up. Seeds a realistic "before" state so
 # you can practise relocating an account, provisioning a new one, and writing a
@@ -38,3 +41,5 @@ EOF
 fi
 
 echo "[playground] ready. Try:  id user1   getent passwd user1   sudo -l -U user1"
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

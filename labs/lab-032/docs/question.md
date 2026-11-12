@@ -11,3 +11,15 @@ User `candidate` has a personal scripts directory at `~/work` containing a helpe
 3. Prove it does **not** shadow an existing command: a same-named decoy script named `ls` will be placed in `~/work`, and the real system `ls` must still win.
 
 The grader checks, from a fresh `su - candidate` login shell, that `/home/candidate/work` is in `PATH` after `/usr/bin` and that `helper-tool` runs by name. It then plants its own decoy `~/work/ls` and checks that `type -P ls` does not point at it and that running `ls` does not run the decoy.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-02](../../../sections/section-030/module-02/course.md).
+
+The grader checks:
+
+- Confirms ~/work is appended (not prepended) to candidate's PATH in a login-shell dotfile.
+- Confirms a same-named decoy script in ~/work never wins over the real system command.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

@@ -59,3 +59,9 @@ There are three ways to share a directory: group membership, the setgid bit on a
 Reaching for a new group instead looks right, but every one-off exception then becomes a permanent group to track and clean up. ACLs exist to avoid that cost.
 
 > *ACLs extend permissions, they do not replace them: the owner, group and other bits and the mask entry still cap what an ACL entry really grants.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [ACL-Based Shared Directory Access Lab](../../../labs/lab-021/docs/question.md): Grant two users different access to a whole directory tree with named ACL entries; Add default ACL entries so new files inherit both grants; Keep the owner, group and base mode of the tree unchanged.
+- [Access Control & Resource Limits Capstone Lab](../../../labs/lab-020/docs/question.md): Give two outside users read-write and read-only access to a shared tree, inherited by new files; Turn a soft .bashrc process limit into a hard PAM limit; Limit a group to one login session at a time.

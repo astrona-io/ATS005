@@ -62,3 +62,9 @@ Every command block in the parts runs **inside that virtual machine**, as `root`
 Cron and systemd sit outside the shell profile world entirely. That is why a variable that "works everywhere" in testing can still be missing from a scheduled job, and why the exam checks that you pick the right file for the session that needs it.
 
 > *Pick the file by asking two questions: who must see the variable, and through which door do they come aboard?*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [System-Wide and Personal Environment Variables Lab](../../../labs/lab-031/docs/question.md): Set a variable for every user's login and non-login shells through /etc/environment; Set a personal variable for one user only in their login profile.
+- [Shell Environment & PATH Capstone Lab](../../../labs/lab-030/docs/question.md): Export a variable for every login shell through a profile.d script; Set a personal variable and extend PATH for one user only; Prove that a decoy script never replaces a real system command.

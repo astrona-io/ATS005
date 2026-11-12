@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms ~/bin is appended (not prepended) to candidate's PATH, and that a
 # same-named decoy script placed there never shadows a real system command.
 
 set -u
 
-effective_path=$(su - candidate -c 'echo $PATH' 2>/dev/null || true)
+effective_path=$(sudo su - candidate -c 'echo $PATH' 2>/dev/null || true)
 if [[ -z "$effective_path" ]]; then
   echo "FAIL: PATH capstone - could not read candidate's effective PATH from a fresh login shell"
   exit 1
@@ -35,7 +39,7 @@ if [[ "$bin_index" -lt "$usrbin_index" ]]; then
   exit 1
 fi
 
-if ! su - candidate -c 'command -v deploy-helper' >/dev/null 2>&1; then
+if ! sudo su - candidate -c 'command -v deploy-helper' >/dev/null 2>&1; then
   echo "FAIL: PATH capstone - deploy-helper in ~/bin is not runnable by name from a fresh login shell"
   exit 1
 fi
@@ -51,7 +55,7 @@ EOF
 chmod +x "$decoy"
 chown candidate:candidate "$decoy"
 
-resolved=$(su - candidate -c 'hash -r; type -P id' 2>/dev/null || true)
+resolved=$(sudo su - candidate -c 'hash -r; type -P id' 2>/dev/null || true)
 if [[ "$resolved" == "/home/candidate/bin/id" ]]; then
   echo "FAIL: PATH capstone - the decoy ~/bin/id shadowed the real system 'id' command"
   exit 1
@@ -59,3 +63,5 @@ fi
 
 echo "PASS: ~/bin is appended after standard system directories and never shadows real commands"
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

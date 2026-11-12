@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 # Prepares every pre-existing account/group the capstone transforms
 set -eu
 
@@ -51,3 +53,4 @@ sudo chown leaver5:leaver5 /home/leaver5/handoff.txt
 
 echo "Ready for local account & group lifecycle capstone."
 exit 0
+ASTRONA_STUDENT_SCRIPT

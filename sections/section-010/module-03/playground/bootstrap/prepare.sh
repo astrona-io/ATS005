@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+sudo -n bash <<'BOOTSTRAP_ROOT'
 # OS prep for PLAYGROUND — Account Lifecycle: Defaults, Aging & Locking
 # Runs once when the environment comes up. Seeds accounts to expire, lock, and
 # remove, plus one carrying an authorized SSH key so the "locking the password
@@ -36,3 +39,5 @@ systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd 2>/dev/nul
 
 # contractor7 is intentionally NOT created — the reading creates it with useradd.
 echo "[playground] ready. Try:  useradd -D   chage -l contractor3   ssh -i /root/contractor3_key contractor3@localhost id"
+BOOTSTRAP_ROOT
+ASTRONA_STUDENT_SCRIPT

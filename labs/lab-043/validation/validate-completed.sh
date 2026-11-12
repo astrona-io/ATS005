@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms sssd.conf/nsswitch.conf are correctly wired, lfcsuser/developers
 # resolve via NSS, and local accounts (root) remain unaffected.
 
@@ -9,7 +13,7 @@ if ! systemctl is-active --quiet sssd; then
   exit 1
 fi
 
-perms=$(stat -c '%a %U %G' /etc/sssd/sssd.conf 2>/dev/null)
+perms=$(sudo stat -c '%a %U %G' /etc/sssd/sssd.conf 2>/dev/null)
 if [[ "$perms" != "600 root root" ]]; then
   echo "FAIL: /etc/sssd/sssd.conf must be mode 600 owned root:root, got '${perms:-<missing>}'"
   exit 1
@@ -77,5 +81,64 @@ if [[ "$root_id" != *"uid=0(root)"* ]]; then
   exit 1
 fi
 
+# Reject a client that makes the task pass by disabling server authentication.
+if ! sudo python3 - <<'CONFIG'
+import configparser
+cfg = configparser.ConfigParser(interpolation=None)
+cfg.read('/etc/sssd/sssd.conf')
+sections = [cfg[s] for s in cfg.sections() if s.startswith('domain/') and cfg[s].get('id_provider') == 'ldap']
+assert sections, 'No LDAP domain configured'
+for domain in sections:
+    assert domain.getboolean('ldap_id_use_start_tls', fallback=False), 'StartTLS is required'
+    assert domain.get('ldap_tls_reqcert', '').lower() in ('demand', 'hard'), 'Certificate verification is required'
+CONFIG
+then
+  echo 'FAIL: LDAP must require StartTLS and trusted server certificates'
+  exit 1
+fi
+
+# A fresh directory-only identity cannot be satisfied by cached lfcsuser data.
+sudo -n bash <<'VERIFY_ROOT'
+set -euo pipefail
+fail() { echo "FAIL: $*"; exit 1; }
+probe="probe$(openssl rand -hex 6)"
+password="$(openssl rand -hex 16)"
+uid=$((20000 + RANDOM))
+dn="uid=$probe,ou=people,dc=example,dc=com"
+cleanup() { ldapdelete -x -H ldap://127.0.0.1 -D cn=admin,dc=example,dc=com -w 'LdapRoot!2024' "$dn" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+hash=$(slappasswd -s "$password")
+ldapadd -x -H ldap://127.0.0.1 -D cn=admin,dc=example,dc=com -w 'LdapRoot!2024' >/dev/null <<EOF
+dn: $dn
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: Fresh LDAP probe
+sn: Probe
+uid: $probe
+uidNumber: $uid
+gidNumber: 5000
+homeDirectory: /home/$probe
+loginShell: /bin/bash
+userPassword: $hash
+EOF
+entry=''
+for attempt in $(seq 1 15); do
+  entry=$(getent -s sss passwd "$probe" || true)
+  [ -n "$entry" ] && break
+  sleep 2
+done
+[ "$(printf '%s' "$entry" | cut -d: -f3)" = "$uid" ] || fail 'fresh LDAP identity did not resolve through SSSD'
+# pamtester exercises PAM authentication; root su would skip the password check.
+printf '%s\n' "$password" | timeout 15 pamtester lfcs-ldap "$probe" authenticate >/dev/null 2>&1 || fail 'LDAP password authentication failed'
+if printf '%s\n' 'deliberately-wrong-password' | timeout 15 pamtester lfcs-ldap "$probe" authenticate >/dev/null 2>&1; then
+  fail 'incorrect LDAP password was accepted'
+fi
+VERIFY_ROOT
+status=$?
+[ "$status" -eq 0 ] || exit "$status"
+
 echo "PASS: sssd resolves lfcsuser/developers via NSS correctly, and local accounts (root) remain unaffected."
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

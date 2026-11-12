@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms slapd serves dc=example,dc=com, listens on 389 and 636, negotiates
 # TLS on both, and accepts the admin bind with the expected rootPW.
 
@@ -28,7 +32,7 @@ if [[ "$suffix" != "dc=example,dc=com" ]]; then
   exit 1
 fi
 
-rootdn=$(sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" "(olcRootDN=*)" olcRootDN 2>/dev/null | grep -i '^olcRootDN:' | cut -d' ' -f2-)
+rootdn=$(sudo ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" "(olcSuffix=dc=example,dc=com)" olcRootDN 2>/dev/null | grep -i '^olcRootDN:' | cut -d' ' -f2-)
 if [[ "$rootdn" != "$ADMIN_DN" ]]; then
   echo "FAIL: expected olcRootDN '$ADMIN_DN', got '${rootdn:-<empty>}'"
   exit 1
@@ -61,3 +65,5 @@ rm -f /tmp/lab041-tls-check.log /tmp/lab041-starttls-check.log /tmp/lab041-whoam
 
 echo "PASS: slapd serves dc=example,dc=com, listens on 389/636, TLS negotiates, and the admin bind works."
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

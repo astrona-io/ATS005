@@ -14,3 +14,15 @@ The group `webops` has the members `anna` and `ben`. The user `cleo` is not in t
 6. Every sudoers file on the ship must still pass `visudo -c`.
 
 The grader checks the file's name, owner and mode, the alias, the answers of `sudo -l -U` for the three users, that `anna` and `ben` can run the two commands with `sudo -n` but not `systemctl stop ssh`, that `cleo` is not allowed to run the service commands, and that `visudo -c` succeeds.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-04](../../../sections/section-010/module-04/course.md).
+
+The grader checks:
+
+- Confirms /etc/sudoers.d/webops exists with owner root:root and mode 0440, defines the SERVICE_CMDS alias, and that every sudoers file passes visudo -c.
+- Confirms webops members may run the two ssh service commands without a password, cleo may read the ssh journal only with a password, and nobody gets more.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

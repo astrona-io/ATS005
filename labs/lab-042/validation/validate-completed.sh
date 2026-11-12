@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms ou=people/ou=groups, the developers posixGroup, and the lfcsuser
 # posixAccount all exist with the correct attributes, and that an
 # authenticated bind as lfcsuser succeeds over StartTLS.
@@ -76,3 +80,5 @@ rm -f /tmp/lab042-search.log /tmp/lab042-people.log /tmp/lab042-groups.log /tmp/
 
 echo "PASS: ou=people/ou=groups, developers (gid 5000), and lfcsuser (uid 10001) all exist and bind correctly over TLS."
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

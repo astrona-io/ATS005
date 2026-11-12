@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
+# Inspect protected state; user access checks select their target account explicitly.
+sudo -n bash <<'GRADER_ROOT'
 # Confirms COMPANY_PROXY is set system-wide via the PAM-parsed /etc/environment
 # file (not a per-user dotfile), and is actually visible in a fresh session.
 
@@ -24,11 +28,13 @@ if grep -rl 'COMPANY_PROXY' /home/*/.bashrc /home/*/.bash_profile /home/*/.profi
   exit 1
 fi
 
-session_env=$(su - candidate -c 'env' 2>/dev/null || true)
+session_env=$(sudo su - candidate -c 'env' 2>/dev/null || true)
 if ! echo "$session_env" | grep -q 'COMPANY_PROXY=http://proxy.internal:3128'; then
-  echo "FAIL: system-wide proxy - COMPANY_PROXY is not visible in a fresh login session (su - candidate)"
+  echo "FAIL: system-wide proxy - COMPANY_PROXY is not visible in a fresh login session (sudo su - candidate)"
   exit 1
 fi
 
 echo "PASS: COMPANY_PROXY is set system-wide via /etc/environment and visible in a fresh session"
 exit 0
+GRADER_ROOT
+ASTRONA_STUDENT_SCRIPT

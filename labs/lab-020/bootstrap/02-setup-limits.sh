@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Match the account used by astrona ssh, including its home and permissions.
+sudo -H -u student bash <<'ASTRONA_STUDENT_SCRIPT'
 set -eu
 
 SOFT_NPROC=120
@@ -17,3 +19,4 @@ sudo mkdir -p /var/lib/lab-020
 echo "${SOFT_NPROC}" | sudo tee /var/lib/lab-020/original-soft-nproc > /dev/null
 
 exit 0
+ASTRONA_STUDENT_SCRIPT

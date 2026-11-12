@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Read protected sudoers files with administrative privileges.
+sudo -H bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms what anna, ben and cleo may run through sudo, and that nobody got ALL.
 
 set -u
@@ -59,3 +61,4 @@ done
 
 echo "PASS: webops and cleo have exactly the sudo rules the task asks for"
 exit 0
+ASTRONA_STUDENT_SCRIPT

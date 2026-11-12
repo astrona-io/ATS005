@@ -111,10 +111,10 @@ Confirm both `389` and `636` show `LISTEN` status under the control of `slapd`.
 
 Verify secure SSL/TLS connection on port 636:
 ```bash
-openssl s_client -connect 127.0.0.1:636 -brief </dev/null
+openssl s_client -connect 127.0.0.1:636 -CAfile /etc/ldap/certs/ldap-server.crt -verify_ip 127.0.0.1 -verify_return_error -brief </dev/null
 ```
 *   `s_client`: Tests secure TCP connections.
-*   **What to look for:** You should see a successful SSL handshake. A message like `Verify return code: 18 (self-signed certificate)` is expected and correct because we are using our self-signed certificate.
+*   **What to look for:** The connection must verify successfully using the supplied trust anchor. A self-signed certificate error means client trust is not configured correctly.
 
 Verify StartTLS connection upgrade on port 389:
 ```bash
@@ -143,6 +143,13 @@ An LDAP directory is structured as a tree. Before adding any users or groups, we
 Create an LDIF file defining OUs for people and groups:
 ```bash
 cat > /tmp/ou-structure.ldif << 'EOF'
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: LFCS directory
+dc: example
+
 dn: ou=people,dc=example,dc=com
 objectClass: organizationalUnit
 ou: people
@@ -319,3 +326,19 @@ id root
 *   **Expected Output:** Completely normal local output (UID `0`, group `0`). This proves that local accounts resolve instantly from local disk, completely unaffected by SSSD.
 
 Once all parts pass, run the local validation suite to pass the lab!
+
+## Trust the lab certificate before testing TLS
+
+The server settings do not configure client trust. Install the lab certificate as the client trust anchor and require certificate verification:
+
+```bash
+sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
+TLS_CACERT /etc/ldap/certs/ldap-server.crt
+TLS_REQCERT demand
+EOF
+openssl s_client -connect 127.0.0.1:636 \
+  -CAfile /etc/ldap/certs/ldap-server.crt -verify_ip 127.0.0.1 \
+  -verify_return_error -brief </dev/null
+```
+
+A successful handshake alone does not prove trust. This command must verify the certificate and the address. Then test StartTLS with `ldapsearch -ZZ`; keep verification enabled.

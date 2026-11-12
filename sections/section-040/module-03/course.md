@@ -67,3 +67,9 @@ This is the end of the chain: the client reads the POSIX attributes stored in th
 The habit this module teaches applies to every PAM or NSS change, LDAP or not: never make a change that could break local login without a proven way back.
 
 > *Prove NSS resolution with `getent` and `id` before you ever test a login: an authentication change that also breaks local accounts can lock you out completely.*
+
+<!-- curriculum-practice -->
+## Practice and assessment
+
+- [SSSD LDAP Client Integration Lab](../../../labs/lab-043/docs/question.md): Write a secure sssd.conf that reaches the directory over StartTLS; Add sss to nsswitch.conf and resolve directory users and groups with getent; Prove that local accounts still resolve as before.
+- [Centralized Identity with LDAP Capstone Lab](../../../labs/lab-040/docs/question.md): Build a TLS-secured OpenLDAP server and populate it with a POSIX group and user; Wire the same host into the directory with sssd and nsswitch; Prove that directory users resolve while local accounts stay unaffected.

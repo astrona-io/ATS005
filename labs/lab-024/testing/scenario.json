@@ -1,0 +1,28 @@
+{
+  "initial_failures": {
+    "default/verify-backup-file": "does not exist or is empty"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-backup-file": "does not exist or is empty"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ]
+}

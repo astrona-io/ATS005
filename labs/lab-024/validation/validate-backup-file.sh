@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Read the ACL backup without changing permissions on /root.
+sudo -H bash <<'ASTRONA_STUDENT_SCRIPT'
 # Confirms the backup file was saved with the full ACL of the tree.
 set -u
 
@@ -23,3 +25,4 @@ done
 
 echo "PASS: the backup holds the named, clerk and default entries of the tree"
 exit 0
+ASTRONA_STUDENT_SCRIPT

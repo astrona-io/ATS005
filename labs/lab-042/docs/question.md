@@ -10,3 +10,14 @@ The host `data-001` is already running a TLS-secured OpenLDAP server at base DN 
 4.  Set `lfcsuser`'s password to exactly **`LfcsLdap!2024`**.
 5.  Prove, using `ldapsearch`, that the new entries are searchable.
 6.  Prove, using `ldapwhoami`, that an authenticated bind as `lfcsuser` with the password above succeeds when StartTLS is **required** (`-ZZ`) against `ldap://127.0.0.1`.
+<!-- curriculum-links -->
+
+## Related lessons and assessment
+
+Read [module-02](../../../sections/section-040/module-02/course.md).
+
+The grader checks:
+
+- Confirms ou=people/ou=groups, the developers posixGroup, and the lfcsuser posixAccount all exist, and that an authenticated bind as lfcsuser succeeds over StartTLS.
+
+Use the inspection commands in the solution to check your work. Submit when you have finished; submission ends this environment.

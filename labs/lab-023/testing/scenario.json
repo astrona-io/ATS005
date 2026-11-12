@@ -1,0 +1,31 @@
+{
+  "initial_failures": {
+    "default/verify-service-limit": "4096"
+  },
+  "solution": [
+    {
+      "script": "testing/solution.sh"
+    }
+  ],
+  "negative": [
+    {
+      "name": "regression",
+      "apply": [
+        {
+          "script": "testing/negative.sh"
+        }
+      ],
+      "failures": {
+        "default/verify-service-limit": "4096"
+      },
+      "restore": [
+        {
+          "script": "testing/restore.sh"
+        }
+      ]
+    }
+  ],
+  "reboot": [
+    "default"
+  ]
+}
